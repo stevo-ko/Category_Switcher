@@ -1,0 +1,213 @@
+{
+  "Language_Setting": 
+  {
+    "Label": "Language Setting",
+    "Description": "Select the language for the settings/messages and the Category Switcher.\nThe language will change immediately when you select one."
+  },
+
+  "Main_Setting":
+  {
+    "Label": "General Settings",
+    "Description": "To enable any of the following settings, just press the toggle on.\nOnce enabled, you will be able to adjust the values for the appropriate section."
+  },  
+  "General":
+  {
+    "Header": "Category Switcher Settings",
+    "Warning": "Attention: ",
+    "Seconds": "Seconds",
+    "About": "About Category Switcher",
+    "Save": "Save Settings",
+    "Back": "Back to Settings",
+    "Settingmenu_Version": "Settings Menu Version",
+    "Program_Version": "Program Version" 
+  },
+  "Language":
+  {
+    "English": "English",
+    "German": "German"
+  },
+  "Buttons":
+  {
+    "Add": "Add",
+    "Del": "Delete",
+    "Yes": "Yes",
+    "No": "No",
+    "Confirm": "Confirm",
+    "Abort": "Cancel",
+    "GameRootFolder": "Add Root Folder",
+    "ExcludeFolder": "Exclude Folder",
+    "ExeName": "Exclude EXE"
+  },
+  "Allowed_Paths":
+  {
+    "Label": "Game Root Folders",
+    "Description": "Select the folders that contain all your games.",
+    "WarningNote":  "Do not select the individual game folders, e.g. 'E:\\Games\\' not 'E:\\Games\\SpiderMan2'."
+  },
+  "Excluded_Names":
+  {
+    "Label": "Excluded Exe Files",
+    "Description": "Only change this if you know what you’re doing! Define Exe Files that should be excluded for detecting."
+  },
+  "Excluded_Folders":
+  {
+    "Label": "Excluded Folders",
+    "Description": "Only change this if you know what you’re doing! Define folders that should be excluded when searching for the category."
+  },
+  "GameRootFolder_Popup": 
+  {
+    "Label": "Select Game Root Folder"
+  },  
+
+  "ExcludeFolder_Popup": 
+  {
+    "Label": "Select Folder to exclude"
+  },
+
+  "AddExeName_Popup": 
+  {
+    "Label": "EXE-Name to exclude",
+    "PlaceholderText": "Name of the EXE file to exclude"
+  },
+
+  "Save_Popup": 
+  {
+    "Label": "Save",
+    "Description": "The following changes are unsaved. Would you like to save them before closing?"
+  },
+  "Warning_Popup": {
+    "Label": "Warning",
+    "Description": "Selecting drives for scanning may cause high load and unnecessary false detections.\nAre you sure this drive only contains programs you want to recognize?"
+  },
+
+  "Delete_Popup": 
+  {
+    "Label": "Delete Entries",
+    "Description": "Are you sure you want to delete the following entries?"
+  },
+  
+  "Chat":
+  {
+    "Header": "Chat Settings",
+    "Description": "In the chat settings you can enable or disable the chatmessage function.\nYou can also customize the content of the automatic messages.",
+    "failedMessage": "No category found for the Game: '{game}'",
+    "updatedMessage": "Category was changed to: '{category}'",
+    "notInLocalDB": "Local Only Mode enabled: Game '{game}' is not in local database"  
+  },
+
+  "Optional_Settings":
+  {
+    "Header": "Optional Settings",
+    "Description": "Here you can adjust optional settings that change the behavior of the Category Switcher."
+  },
+
+  "Important_Settings":
+  {
+    "Header": "Important Settings",
+    "Description": "These settings are crucial for the proper functioning of the Category Switcher.\nPlease review them carefully."
+  },
+
+  "Similarity":
+  {
+    "Label": "Match Similarity",
+    "Current": "Similarity of Matches: ",
+    "Description": "Sets the percentage threshold at which a category is assigned to a found game."
+  },
+
+  "DelayGeneral": 
+  {
+  "Label": "General Delay",
+  "Current": "Current Delay: ",
+  "Default": "Defaultvalue 0 Seconds (Deactivated)",
+  "Description": "Defines how long to wait after closing general programs or games before automatically switching to the 'Just Chatting' category. Useful if programs frequently crash or are only briefly closed."
+  },
+
+  "DelayProgramming": 
+  {
+  "Label": "Programming Delay",
+  "Current": "Current Delay: ",
+  "Default": "Default Value 60 Seconds",
+  "Description": "Defines how long to wait after closing programming-related applications before switching to the 'Just Chatting' category.\nThis delay only applies when the current category is 'Software & Development'."
+  },
+
+  "Twitch_Info": 
+  {
+  "Description": "This Section shows you the ClientID and OAuthToken that Category Switcher received from Streamer.bot",
+  "Description_ClientID": "Your Twitch Client ID, required for authenticated Twitch API access.",
+  "Description_OAuthToken": "Your Twitch OAuthToken, required for authenticated Twitch API access."
+  },
+
+  "Box_Art_Size":
+  {
+    "Label":"Box Art Size",
+    "Current": "Box Art Size: ",
+    "Description": "Select the Size of the Box Art Image"
+  },
+  "Streamer_bot":
+  {
+    "Label": "Streamer.bot URL and Port",
+    "Description": "Streamer.bot HTTP Server URL and Port, only change if you also change it in the Streamer.bot Settings!!"
+  },
+  "Fast_Api":
+  {
+    "Label": "Fast API URL and Port",
+    "Description": "Fast API URL and Port, only change if you also change it in the C# Code of the Get Token Sub Action!!"
+  },
+  "Watch_Bot":
+  {
+    "Label": "Watch Streamer.bot",
+    "Description": "Option to stop Category Switcher when Streamer.bot is closed"
+  },
+  "Watch_OBS":
+  {
+    "Label": "Watch OBS",
+    "Description": "Option to stop Category Switcher when Streamer.bot is closed"
+  },
+  "Local_DB":
+  {
+    "Label": "Only Local Database",
+    "Description": "When enabled Category Switcher only changes to Categories already inside game_Data.json and won't search Twitch for a match"
+  },
+  "Show_Console":
+  {
+    "Label": "Show Console Window",
+    "Description": "If enabled the console window for Category Switcher will open. Mostly used to see why a Category is not recogniced"
+  },
+  "Chat_Message":
+  {
+    "Label": "Chat Message",
+    "Description": "Enable or disable sending a chat message when a category is changed or an error occurs."
+  },
+
+  "As_Announcement":
+  {
+    "Label": "Send as Announcement",
+    "Description": "Enables sending the chat message as a Twitch announcement when the category changes or an error occurs."
+  },
+
+  "Update_Message": 
+  {
+    "Label": "Changed Message in Chat",
+    "Description": "Message that displays when the category was changed. Enable to modify the message."
+  },
+  "Failed_Message": 
+  {
+    "Label": "Failed Message in Chat",
+    "Description": "Message that displays when the category change failed. Enable to modify the message."
+  },
+  "Not_in_DB_Message": 
+  {
+    "Label": "Not in local DB Message",
+    "Description": "Message that displays when Local only Mode is active and a game is not found in the local database. Enable to modify teh message."
+  },
+  "Censor_Mode": 
+  {
+    "Label": "Censor Mode",
+    "Description": "Enabling will produce a game_data_censored.json where all filepaths are removed."
+  },
+
+
+  "Added": "Added",
+  "Deleted": "Removed",
+  "Changed": "Changed"
+}

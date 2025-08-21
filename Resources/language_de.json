@@ -1,0 +1,216 @@
+{
+  "Language_Setting": 
+  {
+    "Label": "Spracheinstellung",
+    "Description": "Wähle die Sprache für die Einstellungen/Nachrichten und den Category Switcher.\nDie Sprache wird sofort geändert, wenn du eine auswählst."
+  },
+
+  "Main_Setting":
+  {
+    "Label": "Allgemeine Einstellungen",
+    "Description": "Um eine der folgenden Einstellungen zu aktivieren, tippen Sie einfach auf den Schalter.\nSobald er eingeschaltet ist, können Sie die Werte im entsprechenden Abschnitt anpassen."
+  },
+  "General": 
+  {
+    "Header": "Category Switcher Einstellungen",
+    "Warning": "Achtung: ",
+    "Seconds": "Sekunden",
+    "About": "Über Category Switcher",
+    "Save": "Einstellungen speichern",
+    "Back": "Zurück zu den Einstellungen",
+    "Settingmenu_Version": "Einstellungenmenü Version",
+    "Program_Version": "Programm Version"
+  },
+  "Language": 
+  {
+    "English": "Englisch",
+    "German": "Deutsch"
+  },
+  "Buttons": 
+  {
+    "Add": "Hinzufügen",
+    "Del": "Löschen",
+    "Yes": "Ja",
+    "No": "Nein",
+    "Confirm": "Bestätigen",
+    "Abort": "Abbrechen",
+    "GameRootFolder": "Hauptordner hinzufügen",
+    "ExcludeFolder": "Ordner ausschließen",
+    "ExeName": "EXE ausschließen"
+  },
+  "Allowed_Paths": 
+  {
+    "Label": "Spiele-Hauptordner",
+    "Description": "Wähle die Ordner aus, in denen sich alle deine Spiele befinden.",
+    "WarningNote": "Wähle nicht die direkten Spieleordner, z. B. 'E:\\Spiele\\SpiderMan2' sondern 'E:\\Spiele\\'."
+  },
+  "Excluded_Names": 
+  {
+    "Label": "Ausgeschlossene Exe Dateien",
+    "Description": "Nur anpassen, wenn du genau weißt, was du machst! Hier kannst du Exe Dateien angeben, die bei der Erkennung ignoriert werden sollen."
+  },
+  "Excluded_Folders": 
+  {
+    "Label": "Ausgeschlossene Ordner",
+    "Description": "Nur anpassen, wenn du genau weißt, was du machst! Hier kannst du Ordner angeben, die bei der Kategoriesuche ignoriert werden sollen."
+  },
+
+  "GameRootFolder_Popup": 
+  {
+    "Label": "Wähle Spiele Hauptordner"
+  },
+
+  "ExcludeFolder_Popup": 
+  {
+    "Label": "Wähle Ordner zum ausschließen"
+  },
+
+  "AddExeName_Popup": 
+  {
+    "Label": "EXE-Namen ausschließen",
+    "PlaceholderText": "Name der auszuschliessenden EXE-Datei"
+  },
+
+  "Save_Popup": 
+  {
+    "Label": "Speichern",
+    "Description": "Folgende Änderungen sind ungespeichert, möchtest du sie speichern vor dem schliessen?"
+  },
+  "Warning_Popup": 
+  {
+    "Label": "Warnung",
+    "Description": "Warnung Laufwerke auszuwählen kann zu hoher Last und unnötigen Falscherkennungen führen, sind Sie sicher das sich auf diesem Laufwerk nur Programme befinden die sie erkennen wollen?"
+  },
+
+  "Delete_Popup": 
+  {
+    "Label": "Einträge löschen",
+    "Description": "Bist du sicher, dass du die markierten Einträge löschen möchtest?"
+  },
+
+  "Chat": 
+  {
+    "Header": "Chat Einstellungen",
+    "Description": "In den Chat-Einstellungen kannst du die Chatnachrichten-Funktion aktivieren oder deaktivieren.\nAußerdem kannst du den Inhalt der automatischen Nachrichten anpassen.",
+    "failedMessage": "Keine Kategorie für das Spiel gefunden: '{game}'",
+    "updatedMessage": "Kategorie wurde geändert zu: '{category}'",
+    "notInLocalDB": "Nur-Lokal-Modus aktiviert: Spiel '{game}' ist nicht in der lokalen Datenbank"
+  },
+
+  "Optional_Settings":
+  {
+    "Header": "Optionale Einstellungen",
+    "Description": "Hier kannst du optionale Einstellungen anpassen, die das Verhalten des Category Switchers beeinflussen."
+  },
+
+  "Important_Settings": 
+  {
+    "Header": "Wichtige Einstellungen",
+    "Description": "Diese Einstellungen sind wichtig für die Funktionalität des Category Switchers.\nBitte ändere sie nur, wenn du genau weißt, was du tust."
+  },
+
+  "Similarity":
+  {
+    "Label": "Ähnlichkeitsgrad",
+    "Current": "Ähnlichkeitsgrad der Zuordnung: ",
+    "Description": "Legt den Prozentsatz fest, ab dem eine Kategorie einem gefundenen Spiel\nzugeordnet wird."
+  },
+
+  "DelayGeneral":
+  {
+    "Label": "Allgemeine Verzögerung",
+    "Current": "Aktuelle Verzögerung: ",
+    "Default": "Standardwert 0 Sekunden (Deaktiviert)",
+    "Description": "Legt fest, wie lange nach dem Schließen allgemeiner Programme oder Spiele gewartet wird, bevor automatisch zur Kategorie 'Just Chatting' gewechselt wird. Nützlich, wenn Programme häufig abstürzen oder nur kurzzeitig geschlossen werden."
+  },
+
+  "DelayProgramming": 
+  {
+  "Label": "Verzögerung Programmierbezogene Anwendungen",
+  "Current": "Aktuelle Verzögerung: ",
+  "Default": "Standartwert 60 Sekunden",
+  "Description": "Legt fest, wie lange nach dem Schließen von programmierbezogenen Anwendungen gewartet wird, bevor zur Kategorie 'Just Chatting' gewechselt wird.\nDiese Verzögerung greift nur, wenn die aktuelle Kategorie 'Software & Development' ist."
+  },
+
+
+  "Twitch_Info": 
+  {
+  "Description": "Diese Kategorie zeigt die von Streamer.bot erhaltene Twitch ClientID und den OAuthToken",
+  "Description_ClientID": "Deine Twitch Client ID, wird für autorisierten Twitch API zugriff benötigt.",
+  "Description_OAuthToken": "Dein Twitch OAuthToken, wird für autorisierten Twitch API zugriff benötigt."
+  },
+
+
+  "Box_Art_Size":
+  {
+    "Label":"Covergröße",
+    "Current": "Covergröße: ",
+    "Description": "Wähle die Größe des Coverbildes."
+  
+  },
+  "Streamer_bot":
+  {
+    "Label": "Streamer.bot URL und Port",
+    "Description": "Streamer.bot HTTP Server URL und Port, nur ändern wenn die Werte auch in den Streamer.bot Einstellungen geändert wird!!"
+  },
+  "Fast_Api":
+  {
+    "Label": "Fast API URL und Port",
+    "Description": "Fast API URL und Port, nur ändern wenn die Werte auch im C# Code der Get Token Sub Action geändert wird!!"
+  },
+  "Watch_Bot":
+  {
+    "Label": "Streamer.bot überwachen",
+    "Description": "Option um Category Switcher zu beenden wenn Streamer.bot geschlossen wird"
+  },
+
+  "Watch_OBS":
+  {
+    "Label": "OBS überwachen",
+    "Description": "Option um Category Switcher zu beenden wenn OBS geschlossen wird"
+  },
+  "Local_DB":
+  {
+    "Label": "Nur Lokale Kategorie Datenbank",
+    "Description": "Wenn aktiviert, verwendet Category Switcher nur die Kategorien, die bereits in game_data.json vorhanden sind, und sucht nicht auf Twitch nach Übereinstimmungen."
+  },
+  "Show_Console":
+  {
+    "Label": "Konsolenfenster anzeigen",
+    "Description": "Wenn aktiviert öffnet sich das Konsolenfenster von Category Switcher. Empfohlen wenn eine Kategorie nicht gefunden wird um zu sehen an was es liegen könnte"
+  },
+  "Chat_Message":
+  {
+    "Label": "Chat Nachricht",
+    "Description": "Aktiviere oder Deaktiviere das Senden einer Chat Nachricht bei erfolgreicher Kategorie änderung oder wenn fehler auftreten"
+  },
+  "As_Announcement":
+  {
+    "Label": "Als Ankündigung senden",
+    "Description": "Aktiviert das Senden der Chatnachricht als Twitch-Ankündigung, wenn die Kategorie geändert wird oder ein Fehler auftritt."
+  },
+  "Update_Message": 
+  {
+    "Label": "Änderungsnachricht im Chat",
+    "Description": "Nachricht, die im Chat geschrieben wird, wenn die Kategorie gewechselt wird. Aktivieren, um die Nachricht anzupassen."
+  },
+  "Failed_Message": 
+  {
+    "Label": "Fehlernachricht im Chat",
+    "Description": "Nachricht, die im Chat bei einem Fehler während der Kategorieänderung gesendet wird. Aktivieren, um Nachricht zu ändern."
+  },
+  "Not_in_DB_Message": 
+  {
+    "Label": "Nicht in lokaler DB Nachricht",
+    "Description": "Nachricht, die im Chat gesendet wird, wenn ein Eintrag nicht in der lokalen Datenbank gefunden wird. Aktivieren, um Nachricht zu ändern."
+  },
+  "Censor_Mode": 
+  {
+    "Label": "Zensurmodus",
+    "Description": "Erstellt bei Aktivierung eine game_data_censored.json, in der alle Dateipfade geleert werden."
+  },
+
+  "Added": "Hinzugefügt",
+  "Deleted": "Entfernt",
+  "Changed": "Geändert"
+}

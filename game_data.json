@@ -1,0 +1,350 @@
+{
+    "Games": [
+        {
+            "Game": "Age of Wonders 4",
+            "Path": "E:\\Spiele\\Age of Wonders 4\\AOW4.exe",
+            "Twitch Category Name": "Age of Wonders 4",
+            "Twitch Category ID": "1908293093",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/1908293093_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Anthem",
+            "Path": "E:\\Spiele\\Anthem\\Anthem.exe",
+            "Twitch Category Name": "Anthem",
+            "Twitch Category ID": "460696",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/460696_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Armored Core VI Fires of Rubicon",
+            "Path": "E:\\Spiele\\Armored Core VI Fires of Rubicon\\Game\\armoredcore6.exe",
+            "Twitch Category Name": "Armored Core VI: Fires of Rubicon",
+            "Twitch Category ID": "686119195",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/686119195_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Chained Echoes",
+            "Path": "E:\\Spiele\\Chained Echoes\\Chained Echoes.exe",
+            "Twitch Category Name": "Chained Echoes",
+            "Twitch Category ID": "519302",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/519302_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Code Vein",
+            "Path": "E:\\Spiele\\Code Vein\\CodeVein.exe",
+            "Twitch Category Name": "Code Vein",
+            "Twitch Category ID": "496697",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/496697_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Control",
+            "Path": "E:\\Spiele\\Control\\Control.exe",
+            "Twitch Category Name": "Control",
+            "Twitch Category ID": "506462",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/506462_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "CrossCode",
+            "Path": "E:\\Spiele\\CrossCode\\CrossCode.exe",
+            "Twitch Category Name": "CrossCode",
+            "Twitch Category ID": "491243",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/491243_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Cyberpunk 2077",
+            "Path": "E:\\Spiele\\Cyberpunk 2077\\setup_redlauncher.exe",
+            "Twitch Category Name": "Cyberpunk 2077",
+            "Twitch Category ID": "65876",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/65876-285x380.jpg"
+        },
+        {
+            "Game": "Dragon Age The Veilguard",
+            "Path": "E:\\Spiele\\Dragon Age The Veilguard\\Dragon Age The Veilguard.exe",
+            "Twitch Category Name": "Dragon Age: The Veilguard",
+            "Twitch Category ID": "503233",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/503233_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Dragon Ball Sparking ZERO",
+            "Path": "E:\\Spiele\\Dragon Ball Sparking ZERO\\SparkingZERO.exe",
+            "Twitch Category Name": "DRAGON BALL: Sparking! ZERO",
+            "Twitch Category ID": "400407464",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/400407464_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Dragon Ball Z Kakarot",
+            "Path": "E:\\Spiele\\Dragon Ball Z Kakarot\\AT\\Binaries\\Win64\\AT-Win64-Shipping.exe",
+            "Twitch Category Name": "DRAGON BALL Z: KAKAROT",
+            "Twitch Category ID": "511195",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/511195_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Final Fantasy VII Remake",
+            "Path": "E:\\Spiele\\Final Fantasy VII Remake Intergrade\\End\\Binaries\\Win64\\ff7remake_.exe",
+            "Twitch Category Name": "FINAL FANTASY VII REMAKE",
+            "Twitch Category ID": "490359",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/490359_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Fort Solis",
+            "Path": "E:\\Spiele\\Fort Solis\\fortsolis.exe",
+            "Twitch Category Name": "Fort Solis",
+            "Twitch Category ID": "140584091",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/140584091_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Forza Horizon 5",
+            "Path": "E:\\Spiele\\Forza Horizon 5\\ForzaHorizon5.exe",
+            "Twitch Category Name": "Forza Horizon 5",
+            "Twitch Category ID": "1757732267",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/1757732267_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Ghost of Tsushima",
+            "Path": "E:\\Spiele\\Ghost of Tsushima\\GhostOfTsushima.exe",
+            "Twitch Category Name": "Ghost of Tsushima",
+            "Twitch Category ID": "499856",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/499856_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "God of War",
+            "Path": "E:\\Spiele\\God of War\\GoW.exe",
+            "Twitch Category Name": "God of War",
+            "Twitch Category ID": "6369",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/6369_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Greedfall",
+            "Path": "E:\\Spiele\\Greedfall\\GreedFall.exe",
+            "Twitch Category Name": "GreedFall",
+            "Twitch Category ID": "495581",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/495581_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Grand Theft Auto V",
+            "Path": "E:\\Spiele\\GTA V\\GTA5.exe",
+            "Twitch Category Name": "Grand Theft Auto V",
+            "Twitch Category ID": "32982",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/32982_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Halo The Master Chief Collection",
+            "Path": "E:\\Spiele\\Halo The Master Chief Collection\\mcc\\binaries\\win64\\MCC-Win64-Shipping.exe",
+            "Twitch Category Name": "Halo: The Master Chief Collection",
+            "Twitch Category ID": "417969",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/417969-285x380.jpg"
+        },
+        {
+            "Game": "Hogwarts Legacy",
+            "Path": "E:\\Spiele\\Hogwarts Legacy\\Phoenix\\Binaries\\Win64\\HogwartsLegacy.exe",
+            "Twitch Category Name": "Hogwarts Legacy",
+            "Twitch Category ID": "1095275650",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/1095275650_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Horizon Forbidden West",
+            "Path": "E:\\Spiele\\Horizon Forbidden West\\HorizonForbiddenWest.exe",
+            "Twitch Category Name": "Horizon Forbidden West",
+            "Twitch Category ID": "518015",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/518015_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "It Takes Two",
+            "Path": "E:\\Spiele\\It Takes Two\\Nuts\\Binaries\\Win64\\ItTakesTwo.exe",
+            "Twitch Category Name": "It Takes Two",
+            "Twitch Category ID": "518213",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/518213_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Kingdom Hearts HD 1.5 and 2.5 ReMIX",
+            "Path": "E:\\Spiele\\Kingdom Hearts HD 1.5 and 2.5 ReMIX\\KINGDOM HEARTS HD 1.5+2.5 ReMIX.exe",
+            "Twitch Category Name": "Kingdom Hearts HD 1.5 + 2.5 ReMIX",
+            "Twitch Category ID": "494099",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/494099-285x380.jpg"
+        },
+        {
+            "Game": "Marvels SpiderMan 2",
+            "Path": "E:\\Spiele\\Marvels SpiderMan 2\\Spider-Man2.exe",
+            "Twitch Category Name": "Marvel's Spider-Man 2",
+            "Twitch Category ID": "1967084783",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/1967084783_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Mass Effect",
+            "Path": "E:\\Spiele\\Mass Effect Ultimate Edition\\MassEffectLauncher.exe",
+            "Twitch Category Name": "Mass Effect",
+            "Twitch Category ID": "15510",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/15510_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "No Man's Sky",
+            "Path": "E:\\Spiele\\No Mans Sky Beyond\\Binaries\\NMS.exe",
+            "Twitch Category Name": "No Man's Sky",
+            "Twitch Category ID": "458781",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/458781_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Octopath_Traveler",
+            "Path": "E:\\Spiele\\Octopath Traveler\\Octopath_Traveler\\Binaries\\Win64\\Octopath_Traveler-Win64-Shipping.exe",
+            "Twitch Category Name": "Octopath Traveler",
+            "Twitch Category ID": "495062",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/332885450_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Octopath Traveler",
+            "Path": "E:\\Spiele\\Octopath Traveler\\Octopath_Traveler.exe",
+            "Twitch Category Name": "Octopath Traveler",
+            "Twitch Category ID": "495062",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/495062_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Only Up!",
+            "Path": "E:\\Spiele\\Only Up\\OnlyUP.exe",
+            "Twitch Category Name": "Only Up!",
+            "Twitch Category ID": "245018539",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/245018539_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "League of Legends",
+            "Path": "E:\\Spiele\\Riot Games\\League of Legends\\LeagueCrashHandler64.exe",
+            "Twitch Category Name": "League of Legends",
+            "Twitch Category ID": "21779",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/21779-285x380.jpg"
+        },
+        {
+            "Game": "Sea of Stars",
+            "Path": "E:\\Spiele\\Sea of Stars\\UnityCrashHandler64.exe",
+            "Twitch Category Name": "Sea of Stars",
+            "Twitch Category ID": "516789",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/516789_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Silent Hill 2",
+            "Path": "E:\\Spiele\\Silent Hill 2 2024 Remake\\SHProto\\Binaries\\Win64\\SHProto-Win64-Shipping.exe",
+            "Twitch Category Name": "Silent Hill 2",
+            "Twitch Category ID": "2058570718",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/2058570718_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Slender The Arrival",
+            "Path": "E:\\Spiele\\Slender The Arrival\\SlenderTheArrival\\Binaries\\Win64\\SlenderTheArrival-Win64-Shipping.exe",
+            "Twitch Category Name": "Slender: The Arrival",
+            "Twitch Category ID": "68074",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/1153797151_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Spellbreak",
+            "Path": "E:\\Spiele\\Spellbreak\\Launch_Spellbreak.exe",
+            "Twitch Category Name": "Spellbreak",
+            "Twitch Category ID": "509614",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/509614_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Spyro The Dragon",
+            "Path": "E:\\Spiele\\Spyro Reignited Trilogy\\Spyro.exe",
+            "Twitch Category Name": "Spyro the Dragon",
+            "Twitch Category ID": "1885901697",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/1885901697_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Starfield",
+            "Path": "E:\\Spiele\\Starfield\\Starfield.exe",
+            "Twitch Category Name": "Starfield",
+            "Twitch Category ID": "506438",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/506438_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Final Fantasy XIV Online",
+            "Path": "E:\\Spiele\\SquareEnix\\FINAL FANTASY XIV - A Realm Reborn\\boot\\ffxivlauncher64.exe",
+            "Twitch Category Name": "FINAL FANTASY XIV ONLINE",
+            "Twitch Category ID": "24241",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/24241_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "The Outer Worlds",
+            "Path": "E:\\Spiele\\The Outer Worlds\\TheOuterWorlds.exe",
+            "Twitch Category Name": "The Outer Worlds",
+            "Twitch Category ID": "510580",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/510580_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Stray",
+            "Path": "E:\\Spiele\\Stray\\Stray.exe",
+            "Twitch Category Name": "Stray",
+            "Twitch Category ID": "518006",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/518006_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Counter-Strike",
+            "Path": "E:\\SteamLibrary\\steamapps\\common\\Counter-Strike Global Offensive\\game\\bin\\win64\\cs2.exe",
+            "Twitch Category Name": "Counter-Strike",
+            "Twitch Category ID": "32399",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/32399-285x380.jpg"
+        },
+        {
+            "Game": "Chrono Trigger",
+            "Path": "E:\\SteamLibrary\\steamapps\\common\\Chrono Trigger\\Chrono Trigger.exe",
+            "Twitch Category Name": "Chrono Trigger",
+            "Twitch Category ID": "8489",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/8489_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Delta Force",
+            "Path": "E:\\SteamLibrary\\steamapps\\common\\Delta Force\\Game\\DeltaForceClient.exe",
+            "Twitch Category Name": "Delta Force",
+            "Twitch Category ID": "3948",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/3948_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Golf It!",
+            "Path": "E:\\SteamLibrary\\steamapps\\common\\Golf It!\\GolfIt.exe",
+            "Twitch Category Name": "Golf It!",
+            "Twitch Category ID": "495764",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/495764_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "LOCKDOWN Protocol",
+            "Path": "E:\\SteamLibrary\\steamapps\\common\\LOCKDOWN Protocol\\LockdownProtocol.exe",
+            "Twitch Category Name": "LOCKDOWN Protocol",
+            "Twitch Category ID": "144418804",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/144418804_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "MarvelRivals",
+            "Path": "E:\\SteamLibrary\\steamapps\\common\\MarvelRivals\\MarvelRivals_Launcher.exe",
+            "Twitch Category Name": "Marvel Rivals",
+            "Twitch Category ID": "1264310518",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/1264310518_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "Rocket League",
+            "Path": "E:\\SteamLibrary\\steamapps\\common\\rocketleague\\Binaries\\Win64\\RocketLeague.exe",
+            "Twitch Category Name": "Rocket League",
+            "Twitch Category ID": "30921",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/30921-285x380.jpg"
+        },
+        {
+            "Game": "Warframe",
+            "Path": "E:\\SteamLibrary\\steamapps\\common\\Warframe\\Warframe.x64.exe",
+            "Twitch Category Name": "Warframe",
+            "Twitch Category ID": "66170",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/66170_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "The Witcher Enhanced Edition",
+            "Path": "E:\\SteamLibrary\\steamapps\\common\\The Witcher Enhanced Edition\\System\\witcher.exe",
+            "Twitch Category Name": "The Witcher: Enhanced Edition",
+            "Twitch Category ID": "1391339485",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/1391339485_IGDB-285x380.jpg"
+        },
+        {
+            "Game": "The Witcher 2: Assassins of Kings",
+            "Path": "E:\\SteamLibrary\\steamapps\\common\\the witcher 2\\bin\\witcher2.exe",
+            "Twitch Category Name": "The Witcher 2: Assassins of Kings",
+            "Twitch Category ID": "25417",
+            "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/25417_IGDB-285x380.jpg"
+        }
+    ],
+    "Database": {
+        "Games in Database": 50
+    }
+}
