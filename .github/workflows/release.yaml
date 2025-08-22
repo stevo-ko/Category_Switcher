@@ -18,10 +18,10 @@ jobs:
       - name: Pack Category_Switcher.rar
         run: |
           mkdir ReleasePackage
-          xcopy "Category_Switcher\Release EXE" "ReleasePackage" /E /I /Y
-          xcopy "Category_Switcher\Ressources" "ReleasePackage\Ressources" /E /I /Y
-          copy "Category_Switcher\Version.json" "ReleasePackage\"
-          copy "Category_Switcher\settings.xaml" "ReleasePackage\"
+          xcopy "Release EXE" "ReleasePackage" /E /I /Y
+          xcopy "Ressources" "ReleasePackage\Ressources" /E /I /Y
+          copy "Version.json" "ReleasePackage\"
+          copy "settings.xaml" "ReleasePackage\"
           7z a Category_Switcher.rar .\ReleasePackage\*
           rmdir /S /Q ReleasePackage
 
@@ -32,10 +32,10 @@ jobs:
         run: |
           mkdir SourcePackage
           # Kopiere alle Dateien und Ordner im Repo außer 'Release EXE', '.git' und '.github'
-          robocopy . SourcePackage /E /XD "Category_Switcher\Release EXE" ".git" ".github" /XF "*.rar"
+          robocopy . SourcePackage /E /XD "Release EXE" ".git" ".github" /XF "*.rar"
           # Optional: wichtige Dateien sicherstellen
-          copy "Category_Switcher\Version.json" "SourcePackage\"
-          copy "Category_Switcher\settings.xaml" "SourcePackage\"
+          copy "Version.json" "SourcePackage\"
+          copy "settings.xaml" "SourcePackage\"
           7z a "Category_Switcher Source.rar" .\SourcePackage\*
           rmdir /S /Q SourcePackage
 
