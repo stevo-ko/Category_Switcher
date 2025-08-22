@@ -1,0 +1,50 @@
+name: Release Category_Switcher
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # -------------------------------
+      # 1️⃣ Category_Switcher.rar
+      # -------------------------------
+      - name: Pack Category_Switcher.rar
+        run: |
+          mkdir ReleasePackage
+          xcopy "Category_Switcher\Release EXE" "ReleasePackage" /E /I /Y
+          xcopy "Category_Switcher\Ressources" "ReleasePackage\Ressources" /E /I /Y
+          copy "Category_Switcher\Version.json" "ReleasePackage\"
+          copy "Category_Switcher\settings.xaml" "ReleasePackage\"
+          7z a Category_Switcher.rar .\ReleasePackage\*
+          rmdir /S /Q ReleasePackage
+
+      # -------------------------------
+      # 2️⃣ Category_Switcher Source.rar (alles außer Release EXE, .git, .github)
+      # -------------------------------
+      - name: Pack Category_Switcher Source.rar
+        run: |
+          mkdir SourcePackage
+          # Kopiere alle Dateien und Ordner im Repo außer 'Release EXE', '.git' und '.github'
+          robocopy . SourcePackage /E /XD "Category_Switcher\Release EXE" ".git" ".github" /XF "*.rar"
+          # Optional: wichtige Dateien sicherstellen
+          copy "Category_Switcher\Version.json" "SourcePackage\"
+          copy "Category_Switcher\settings.xaml" "SourcePackage\"
+          7z a "Category_Switcher Source.rar" .\SourcePackage\*
+          rmdir /S /Q SourcePackage
+
+      # -------------------------------
+      # 3️⃣ GitHub Release erstellen
+      # -------------------------------
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            Category_Switcher.rar
+            Category_Switcher Source.rar
