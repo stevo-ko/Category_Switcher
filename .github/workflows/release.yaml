@@ -3,7 +3,7 @@ name: Release Category_Switcher
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'   # läuft nur bei Tag-Push
 
 jobs:
   release:
@@ -30,7 +30,7 @@ jobs:
           Remove-Item -Recurse -Force $tempDir
 
       # -------------------------------
-      # 2️⃣ Category_Switcher Source.zip (alles außer Release EXE, .git, .github)
+      # 2️⃣ Category_Switcher Source.zip (alles außer Release EXE, .git, .github, alte ZIPs)
       # -------------------------------
       - name: Pack Category_Switcher Source.zip
         shell: pwsh
@@ -39,9 +39,11 @@ jobs:
           New-Item -ItemType Directory -Path $tempDir
 
           $exclude = @("Release EXE",".git",".github","*.zip")
-          Get-ChildItem -Recurse -Force | Where-Object { $exclude -notcontains $_.Name } | ForEach-Object {
-              $dest = Join-Path $tempDir $_.FullName.Substring((Get-Location).Path.Length + 1)
-              if($_.PSIsContainer){ New-Item -ItemType Directory -Path $dest -Force } else { Copy-Item $_.FullName $dest -Force }
+
+          # Nur Dateien/Ordner kopieren, die nicht ausgeschlossen sind
+          Get-ChildItem -Force | Where-Object { $exclude -notcontains $_.Name } | ForEach-Object {
+              $dest = Join-Path $tempDir $_.Name
+              Copy-Item $_.FullName $dest -Recurse -Force
           }
 
           Compress-Archive -Path "$tempDir\*" -DestinationPath "Category_Switcher Source.zip" -Force
