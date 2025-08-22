@@ -19,11 +19,11 @@ jobs:
         run: |
           mkdir ReleasePackage
           xcopy "Release EXE" "ReleasePackage" /E /I /Y
-          xcopy "Ressources" "ReleasePackage\Ressources" /E /I /Y
+          xcopy "Resources" "ReleasePackage\Ressources" /E /I /Y
           copy "Version.json" "ReleasePackage\"
           copy "settings.xaml" "ReleasePackage\"
           7z a Category_Switcher.rar .\ReleasePackage\*
-          rmdir /S /Q ReleasePackage
+          Remove-Item -Recurse -Force ReleasePackage
 
       # -------------------------------
       # 2️⃣ Category_Switcher Source.rar (alles außer Release EXE, .git, .github)
@@ -37,7 +37,7 @@ jobs:
           copy "Version.json" "SourcePackage\"
           copy "settings.xaml" "SourcePackage\"
           7z a "Category_Switcher Source.rar" .\SourcePackage\*
-          rmdir /S /Q SourcePackage
+          Remove-Item -Recurse -Force SourcePackage
 
       # -------------------------------
       # 3️⃣ GitHub Release erstellen
