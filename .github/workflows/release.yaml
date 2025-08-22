@@ -3,7 +3,7 @@ name: Release Category_Switcher
 on:
   push:
     tags:
-      - 'v*'
+      - 'v*'  # Läuft nur bei Tag-Push
 
 jobs:
   release:
@@ -12,32 +12,53 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
+      - name: Set up 7-Zip
+        uses: tibdex/setup-7zip@v1
+        with:
+          version: 'latest'
+
       # -------------------------------
-      # 1️⃣ Category_Switcher.rar
+      # 1️⃣ Category_Switcher.rar (EXE + Resources + Version + Settings)
       # -------------------------------
       - name: Pack Category_Switcher.rar
+        shell: pwsh
         run: |
-          mkdir ReleasePackage
-          xcopy "Release EXE" "ReleasePackage" /E /I /Y
-          xcopy "Resources" "ReleasePackage\Ressources" /E /I /Y
-          copy "Version.json" "ReleasePackage\"
-          copy "settings.xaml" "ReleasePackage\"
-          7z a Category_Switcher.rar .\ReleasePackage\*
-          Remove-Item -Recurse -Force ReleasePackage
+          # Temporäres Verzeichnis
+          $tempDir = "ReleasePackage"
+          New-Item -ItemType Directory -Path $tempDir
+
+          # Dateien/Ordner kopieren
+          Copy-Item -Recurse -Force "Release EXE" "$tempDir\Release EXE"
+          Copy-Item -Recurse -Force "Resources" "$tempDir\Resources"
+          Copy-Item -Force "Version.json","settings.xaml" "$tempDir"
+
+          # RAR erstellen
+          & 7z a "Category_Switcher.rar" "$tempDir\*"
+
+          # Aufräumen
+          Remove-Item -Recurse -Force $tempDir
 
       # -------------------------------
       # 2️⃣ Category_Switcher Source.rar (alles außer Release EXE, .git, .github)
       # -------------------------------
       - name: Pack Category_Switcher Source.rar
+        shell: pwsh
         run: |
-          mkdir SourcePackage
-          # Kopiere alle Dateien und Ordner im Repo außer 'Release EXE', '.git' und '.github'
-          robocopy . SourcePackage /E /XD "Release EXE" ".git" ".github" /XF "*.rar"
-          # Optional: wichtige Dateien sicherstellen
-          copy "Version.json" "SourcePackage\"
-          copy "settings.xaml" "SourcePackage\"
-          7z a "Category_Switcher Source.rar" .\SourcePackage\*
-          Remove-Item -Recurse -Force SourcePackage
+          $tempDir = "SourcePackage"
+          New-Item -ItemType Directory -Path $tempDir
+
+          # Alles außer Release EXE, .git, .github
+          $exclude = @("Release EXE",".git",".github","*.rar")
+          Get-ChildItem -Recurse -Force | Where-Object { $exclude -notcontains $_.Name } | ForEach-Object {
+              $dest = Join-Path $tempDir $_.FullName.Substring((Get-Location).Path.Length + 1)
+              if($_.PSIsContainer){ New-Item -ItemType Directory -Path $dest -Force } else { Copy-Item $_.FullName $dest -Force }
+          }
+
+          # RAR erstellen
+          & 7z a "Category_Switcher Source.rar" "$tempDir\*"
+
+          # Aufräumen
+          Remove-Item -Recurse -Force $tempDir
 
       # -------------------------------
       # 3️⃣ GitHub Release erstellen
