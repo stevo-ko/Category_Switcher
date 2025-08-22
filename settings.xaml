@@ -3798,6 +3798,253 @@
                         </Border>
                     </Grid>
                 </Grid>
+
+
+                <!-- About Overlay -->
+                <Grid x:Name="UpdateOverlay"
+                      Margin="0"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      Panel.ZIndex="11"
+                      Background="{StaticResource MainGradient}"
+                      Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="100" />
+                        <RowDefinition />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition />
+                    </Grid.ColumnDefinitions>
+                    <!-- Header (Row 0): Only Back and Close buttons -->
+                    <Grid Grid.Row="0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <!-- Back Arrow Button -->
+                        <Button x:Name="btnBackUpdate"
+                                Grid.Column="0"
+                                Width="48" 
+                                Height="48"
+                                Background="Transparent"
+                                Margin="10,5,0,50"
+                                BorderThickness="0"
+                                Cursor="Hand"
+                                OverridesDefaultStyle="True">
+                            <Button.ToolTip>
+                                <ToolTip Placement="Bottom"
+                                        HorizontalOffset="50"
+                                        VerticalOffset="-10" 
+                                        HasDropShadow="True"
+                                        Foreground="White"
+                                        Padding="8,4"
+                                        FontSize="13"
+                                        FontFamily="Segoe UI"
+                                        Content="{Binding [General.Back]}"
+                                        Opacity="0">
+
+                                    <!-- Custom Style für runde Ecken -->
+                                    <ToolTip.Style>
+                                        <Style TargetType="ToolTip">
+                                            <Setter Property="OverridesDefaultStyle" Value="True"/>
+                                            <Setter Property="Template">
+                                                <Setter.Value>
+                                                    <ControlTemplate TargetType="ToolTip">
+                                                        <Border Background="#802C5364"
+                                                            CornerRadius="8"
+                                                            Padding="{TemplateBinding Padding}">
+                                                            <ContentPresenter/>
+                                                        </Border>
+                                                    </ControlTemplate>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </ToolTip.Style>
+                                    <!-- Animation Triggers -->
+                                    <ToolTip.Triggers>
+                                        <EventTrigger RoutedEvent="ToolTip.Opened">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                    From="0" To="1"
+                                                                    Duration="0:0:0.2"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                        <EventTrigger RoutedEvent="ToolTip.Closed">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                    From="1" To="0"
+                                                                    Duration="0:0:0.1"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </ToolTip.Triggers>
+                                </ToolTip>
+                            </Button.ToolTip>
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Grid>
+                                        <Image x:Name="BackIconUpdate"
+                                            Tag = "_internal\BackIcon.png"
+                                            Source="https://img.icons8.com/fluency/100/left.png"
+                                            Stretch="Uniform"
+                                            RenderTransformOrigin="0.5,0.5">
+                                            <Image.RenderTransform>
+                                                <ScaleTransform x:Name="iconScale" ScaleX="1" ScaleY="1" />
+                                            </Image.RenderTransform>
+                                        </Image>
+                                    </Grid>
+                                    <ControlTemplate.Triggers>
+                                        <EventTrigger RoutedEvent="MouseEnter">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="BackIcon"
+                                                                    Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleX)"
+                                                                    To="1.1" Duration="0:0:0.1"/>
+                                                    <DoubleAnimation Storyboard.TargetName="BackIcon"
+                                                                    Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleY)"
+                                                                    To="1.1" Duration="0:0:0.1"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                        <EventTrigger RoutedEvent="MouseLeave">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="BackIcon"
+                                                                    Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleX)"
+                                                                    To="1" Duration="0:0:0.1"/>
+                                                    <DoubleAnimation Storyboard.TargetName="BackIcon"
+                                                                    Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleY)"
+                                                                    To="1" Duration="0:0:0.1"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                        <!-- Press Effekt -->
+                                        <EventTrigger RoutedEvent="PreviewMouseDown">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="BackIcon"
+                                                                    Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleX)"
+                                                                    To="0.95" Duration="0:0:0.05"/>
+                                                    <DoubleAnimation Storyboard.TargetName="BackIcon"
+                                                                    Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleY)"
+                                                                    To="0.95" Duration="0:0:0.05"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+
+                                        <EventTrigger RoutedEvent="PreviewMouseUp">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="BackIcon"
+                                                                    Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleX)"
+                                                                    To="1.0" Duration="0:0:0.05"/>
+                                                    <DoubleAnimation Storyboard.TargetName="BackIcon"
+                                                                    Storyboard.TargetProperty="RenderTransform.(ScaleTransform.ScaleY)"
+                                                                    To="1.0" Duration="0:0:0.05"/>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </Grid>
+
+                    <Grid Grid.Row="1" >
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+
+                        <Border CornerRadius="20"
+                                
+                                Padding="20"
+                                Margin="20"
+                                >
+                            <StackPanel x:Name="AboutUpd"
+                                        Width="400"
+                                        Orientation="Vertical"
+                                        HorizontalAlignment="Center">
+
+                                <!-- Switcher Icon -->
+                                <Border Width="160" Height="160"
+                                        CornerRadius="80"
+                                        Margin="0,-80,0,0"
+                                        HorizontalAlignment="Center">
+                                    <Border.Background>
+                                        <SolidColorBrush Color="Black" Opacity="0.3"/>
+                                    </Border.Background>
+                                    <Image Tag="_internal/icon.ico"
+                                        Source=""
+                                        Stretch="Uniform"
+                                        Margin="20"/>
+                                </Border>
+
+                                <!-- Titel & Version -->
+                                <TextBlock HorizontalAlignment="Center"
+                                        FontFamily="Segoe UI Semibold"
+                                        FontSize="28"
+                                        Foreground="White"
+                                        Text="Category Switcher"
+                                        Margin="0,0,0,5"/>
+                                <TextBlock HorizontalAlignment="Center"
+                                        FontFamily="Segoe UI"
+                                        FontSize="16"
+                                        Foreground="LightGray"
+                                        Margin="0,0,0,5">
+                                    <Run Text="{Binding [General.Settingmenu_Version], Mode=OneWay}" />
+                                    <Run x:Name="Settingmenu_Version_Upd" Text="1.0" />
+                                </TextBlock>
+                                <TextBlock HorizontalAlignment="Center"
+                                        FontFamily="Segoe UI"
+                                        FontSize="16"
+                                        Foreground="LightGray"
+                                        Margin="0,0,0,20">
+                                    <Run Text="{Binding [General.Program_Version], Mode=OneWay}" />
+                                    <Run x:Name="Program_Version_Upd" Text="2.0" />
+                                </TextBlock>
+
+                                <!-- Trenner -->
+                                <Separator Margin="0,0,0,20" Opacity="0.4"/>
+
+                                <!-- Credits -->
+                                <TextBlock HorizontalAlignment="Center"
+                                        FontFamily="Segoe UI"
+                                        FontSize="20"
+                                        Foreground="White"
+                                        Text="Credits"
+                                        Margin="0,0,0,10"/>
+
+                                <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
+                                    <TextBlock FontSize="16"
+                                            Foreground="LightGray"
+                                            Margin="0,0,0,5">
+                                        <Run Text="Base GUI Code by " />
+                                        <Hyperlink x:Name="MustacheLinkUpd" NavigateUri="https://mustachedmaniac.com/twitch-extensions/spotify-v2000"
+                                                Foreground="LightSkyBlue">
+                                            MustachedManiac
+                                        </Hyperlink>
+                                    </TextBlock>                               
+
+                                    <TextBlock FontSize="16"
+                                            Foreground="LightGray"
+                                            TextWrapping="Wrap">
+                                        <Run Text="Icons by " />
+                                        <Hyperlink x:Name="Icons8LinkUpd" NavigateUri="https://icons8.com"
+                                                Foreground="LightSkyBlue"
+                                                >
+                                            Icons8
+                                        </Hyperlink>
+                                    </TextBlock>
+                                </StackPanel>
+
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+                </Grid>
             </Grid>
 
             <!-- Footer Row -->
