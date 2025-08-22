@@ -3,7 +3,7 @@ name: Release Category_Switcher
 on:
   push:
     tags:
-      - 'v*'   # läuft nur bei Tag-Push
+      - 'v*'   # nur bei Tag-Push
 
 jobs:
   release:
@@ -40,7 +40,7 @@ jobs:
 
           $exclude = @("Release EXE",".git",".github","*.zip")
 
-          # Nur Dateien/Ordner kopieren, die nicht ausgeschlossen sind
+          # Nur Root-Level Items prüfen, alles in Exclude wird komplett ignoriert
           Get-ChildItem -Force | Where-Object { $exclude -notcontains $_.Name } | ForEach-Object {
               $dest = Join-Path $tempDir $_.Name
               Copy-Item $_.FullName $dest -Recurse -Force
