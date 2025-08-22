@@ -13,12 +13,11 @@ jobs:
         uses: actions/checkout@v3
 
       # -------------------------------
-      # 1️⃣ Category_Switcher.rar (EXE + Resources + Version + Settings)
+      # 1️⃣ Category_Switcher.zip (EXE + Resources + Version + Settings)
       # -------------------------------
-      - name: Pack Category_Switcher.rar
+      - name: Pack Category_Switcher.zip
         shell: pwsh
         run: |
-          $sevenZip = "C:\Program Files\7-Zip\7z.exe"
           $tempDir = "ReleasePackage"
           New-Item -ItemType Directory -Path $tempDir
 
@@ -26,27 +25,26 @@ jobs:
           Copy-Item -Recurse -Force "Resources" "$tempDir\Resources"
           Copy-Item -Force "Version.json","settings.xaml" "$tempDir"
 
-          & "$sevenZip" a "Category_Switcher.rar" "$tempDir\*"
+          Compress-Archive -Path "$tempDir\*" -DestinationPath "Category_Switcher.zip" -Force
 
           Remove-Item -Recurse -Force $tempDir
 
       # -------------------------------
-      # 2️⃣ Category_Switcher Source.rar (alles außer Release EXE, .git, .github)
+      # 2️⃣ Category_Switcher Source.zip (alles außer Release EXE, .git, .github)
       # -------------------------------
-      - name: Pack Category_Switcher Source.rar
+      - name: Pack Category_Switcher Source.zip
         shell: pwsh
         run: |
-          $sevenZip = "C:\Program Files\7-Zip\7z.exe"
           $tempDir = "SourcePackage"
           New-Item -ItemType Directory -Path $tempDir
 
-          $exclude = @("Release EXE",".git",".github","*.rar")
+          $exclude = @("Release EXE",".git",".github","*.zip")
           Get-ChildItem -Recurse -Force | Where-Object { $exclude -notcontains $_.Name } | ForEach-Object {
               $dest = Join-Path $tempDir $_.FullName.Substring((Get-Location).Path.Length + 1)
               if($_.PSIsContainer){ New-Item -ItemType Directory -Path $dest -Force } else { Copy-Item $_.FullName $dest -Force }
           }
 
-          & "$sevenZip" a "Category_Switcher Source.rar" "$tempDir\*"
+          Compress-Archive -Path "$tempDir\*" -DestinationPath "Category_Switcher Source.zip" -Force
 
           Remove-Item -Recurse -Force $tempDir
 
@@ -57,5 +55,5 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            Category_Switcher.rar
-            Category_Switcher Source.rar
+            Category_Switcher.zip
+            Category_Switcher Source.zip
