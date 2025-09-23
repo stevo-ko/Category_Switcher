@@ -26,7 +26,6 @@ import logging
 import threading
 import queue
 import math
-##für fastapi stop imports
 import io
 import contextlib
 import asyncio
@@ -35,6 +34,10 @@ default_config = {
     "twitch": {
         "CLIENT_ID": "",
         "OAuth_token": ""
+    },
+    "kick": 
+    {
+        "OAuth_token": "",
     },
     "streamerbot": {
         "Get Actions ID": [
@@ -64,7 +67,21 @@ default_config = {
         "allowed_paths": [
             "E:\\Spiele",
             "E:\\SteamLibrary",
-            "C:\\Program Files (x86)\\Steam\\steamapps\\"
+            "C:\\Program Files (x86)\\Steam\\steamapps\\",
+            "C:\\Program Files\\Steam\\steamapps\\",
+            "C:\\Program Files (x86)\\Epic Games\\",
+            "C:\\Program Files\\Epic Games\\",
+            "C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games\\",
+            "C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher\\games\\",
+            "C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher\\installed\\",
+            "C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\installed\\",
+            "C:\\Program Files (x86)\\Origin Games\\",
+            "C:\\Program Files\\Origin Games\\",
+            "C:\\Program Files (x86)\\Electronic Arts\\",
+            "C:\\Program Files\\Electronic Arts\\",
+            "C:\\Program Files (x86)\\Battle.net\\",
+            "C:\\Program Files\\Battle.net\\",
+            "C:\\Riot Games\\"   
         ],
         "excluded_names": [
             "Riot Client.exe",
@@ -106,12 +123,7 @@ default_config = {
             "Win",
             "EGS"
         ]
-    },
-    "api": {
-        "url": "127.0.0.1",
-        "port": "3456"
-        
-    },
+    }, 
     "options": {
         "language": "english",
         "similarity": 94,
@@ -124,7 +136,8 @@ default_config = {
         "AsAnnouncement": False,
         "censor_mode": False,
         "delay_programming": 60,
-        "delay_general": 0
+        "delay_general": 0,
+        "kick_enabled": False
     }
 }
 
@@ -180,15 +193,18 @@ def merge_config(default, current):
 
     return result
 
+def remove_from_config():
+    """Entfernt die Einträge aus config.json, die nicht in default_config vorhanden sind"""
+    with open("config.json", "r", encoding="utf-8") as f:
+        data = json.load(f)
 
-##def merge_config(default, current):
-##    """Rekursives Mergen: Nur fehlende Keys aus default in current einfügen."""
-##    for key, value in default.items():
-##        if key not in current:
-##            current[key] = value
-##        elif isinstance(value, dict) and isinstance(current.get(key), dict):
-##            merge_config(value, current[key])
-##    return current
+    # Prüfen, ob Key existiert
+    if "api" in data:
+        del data["api"]
+        # Datei nur schreiben, wenn Key gelöscht wurde
+        with open("config.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False, sort_keys=False)
+
 
 
 try:
@@ -206,12 +222,13 @@ else:
     with open("config.json", "w", encoding="utf-8") as f:
         json.dump(updated_config, f, indent=4)
     config = updated_config
+    remove_from_config()
+    
 
 
 show_console = bool(config["options"]["show_console"])
 setting_language = config["options"]["language"]
-fastapi_url= config["api"]["url"]
-fastapi_port = int(config["api"]["port"])
+
 
 # Variants for language options and a few games
 german_variants = {"deutsch", "german", "de", "ger", "deu"}
@@ -240,7 +257,8 @@ else:
 
 ## Prüfe ob module importiert werden können wenn nicht installiere sie
 ## Check if modules can be imported otherwise install them
-modules = ["rapidfuzz", "requests", "psutil", "fastapi", "uvicorn"]
+
+modules = ["rapidfuzz", "requests", "psutil"]
 
 for module in modules:
     try:
@@ -258,28 +276,30 @@ from rapidfuzz import fuzz
 import requests
 import psutil
 from pydantic import BaseModel
-##fastapi imports
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
-import uvicorn
-##
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QMessageBox, QLabel
 from PyQt5.QtCore import QTimer, QMetaObject
 from PyQt5.QtGui import QFont, QColor, QPalette, QIcon
 
-def get_resource_path(relative_path):
+def get_resource_path_old(relative_path):
     """ Holt den absoluten Pfad zu Ressourcen, egal ob als .py oder .exe ausgeführt """
     if hasattr(sys, '_MEIPASS'):
-        return os.path.join(sys._MEIPASS, relative_path)
-    return relative_path
+        return os.path.join(sys._MEIPASS, "Assets", relative_path)
+    return os.path.join("Assets", relative_path)
 
-# Event für die Synchronisation zwischen FastAPI und dem Hauptprozess
-# Synchonisation event between FastAPI and main logic
-token_event = threading.Event()
-##id_event = threading.Event()
+def get_resource_path(relative_path):
+    """Pfad zu Ressourcen im _internal/Assets Ordner neben der exe/py"""
+    if getattr(sys, 'frozen', False):
+        # exe → basiert auf Ordner der exe
+        base_path = os.path.dirname(sys.executable)
+    else:
+        # py → basiert auf Ordner des Skripts
+        base_path = os.path.dirname(os.path.abspath(__file__))
+
+    return os.path.join(base_path, "_internal", "Assets", relative_path)
 
 # Logging-Queue
 log_queue = queue.Queue()
+
 
 # PyQt für GUI/Konsolen Window
 # PyQt GUI for console window
@@ -412,9 +432,6 @@ def restart_program_no_console():
 ##        # Falls als .py ausgeführt, direkt ohne Konsole starten
 ##        restart_program(with_console=False)
 
-"""Verhindere das, dass Programm mehr als 1 mal läuft"""
-"""Prevent Programm to run simultanously more than 1 time"""
-
 
 def find_json_with_address(args):
     for arg in args:
@@ -455,14 +472,21 @@ else:
 CHECK_INTERVAL = 1
 THRESHOLD = 0
 
+DEBUG_MODE = os.environ.get("DEBUG_MODE") == "1"
+
+"""Verhindere das, dass Programm mehr als 1 mal läuft"""
+"""Prevent Programm to run simultanously more than 1 time"""
 def monitor_instances():
+    if DEBUG_MODE:
+        print("DEBUG_MODE aktiv – Instanzüberwachung deaktiviert.")
+        return
     
     start_time = None
     overall_start_time = time.time()  # Gesamtstartzeit
 
     while True:
         # Wenn 20 Sekunden vorbei sind: Abbrechen
-        if time.time() - overall_start_time > 20:
+        if time.time() - overall_start_time > 5:
             break
         instances = []
         for proc in psutil.process_iter(["pid", "name", "cmdline", "create_time"]):
@@ -507,13 +531,15 @@ def terminate_current_instance():
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         print("Fehler beim Beenden der aktuellen Instanz.")
 
-app = FastAPI()
-
 token = None
 CLIENT_ID = None
 access_token = None
 token_valid = False
-fastapi_running = False
+kick_token = None
+kick_client_id = ""
+kick_client_secret = ""
+kick_enabled = None
+kick_missing = False
 category_set_already = None
 previous_saved_games = None
 first_save = False
@@ -522,86 +548,30 @@ delay_programming = None
 delay_general = 0
 message = False
 server = None
-fastapi_thread = None
-
-class TokenRequest(BaseModel):
-    CLIENT_ID: str
-    token: str
-    
-@app.post("/token")
-
-async def get_access_token_server(data: TokenRequest):
-    global token, CLIENT_ID
-
-    CLIENT_ID = data.CLIENT_ID
-    token = data.token
-##    if language == 1:
-##        print(f"✅ Token empfangen: {token} - Client_ID: {CLIENT_ID}")
-##    if language == 0:
-##        print(f"✅ Token received: {token} - Client_ID: {CLIENT_ID}")
-
-    token_event.set()  # Signal setzen
-    if language == 1:
-        return {"message": "Token erhalten"}
-    if language == 0:
-        return {"message": "Token recieved"}
-        
-    
-##def run_fastapi():
-##    global fastapi_running
-##    """Startet den FastAPI-Server auf localhost und Port 3456"""
-##    """Starting FastAPI-Server on localhost and port 3456"""
-##    import uvicorn
-##    uvicorn.run(app, host=fastapi_url, port=fastapi_port, reload=False, log_config=None)
-##    fastapi_running = True
-##    print(fastapi_running)
-
-def run_fastapi():
-    global server, fastapi_running
-
-    config = uvicorn.Config(app, host=fastapi_url, port=fastapi_port, reload=False, log_config=None)
-    server = uvicorn.Server(config)
-    fastapi_running = True
-    
-
-    async def serve():
-        try:
-            await server.serve()
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            print(f"Fehler im FastAPI Server: {e}", file=sys.stderr)
-        finally:
-            global fastapi_running
-            fastapi_running = False
-            
-
-    try:
-        asyncio.run(serve())
-    except asyncio.CancelledError:
-        pass
-
-def stop_fastapi(thread):
-    global server, fastapi_running
-    if fastapi_running and server is not None:
-        
-
-        # stderr unterdrücken
-        stderr_buffer = io.StringIO()
-        with contextlib.redirect_stderr(stderr_buffer):
-            server.should_exit = True
-            try:
-                if thread.is_alive():
-                    thread.join()
-            except asyncio.CancelledError:
-                pass
-
-        fastapi_running = False
-        
-
+kick_failed = False
+known_exe_names = ["blender.exe","UnrealEditor.exe","Unity Hub.exe","Code.exe","devenv.exe",
+                    "Rider64.exe","Rider.exe","pycharm64.exe","pycharm.exe","idea64.exe","idea.exe",
+                    "webstorm64.exe","webstorm.exe","phpstorm64.exe","phpstorm.exe","clion64.exe","clion.exe",
+                    "goland64.exe","goland.exe","datagrip64.exe","datagrip.exe","rubymine64.exe","rubymine.exe",
+                    "appcode64.exe","appcode.exe","idaq.exe","idaq64.exe","idaw.exe","idaw64.exe","windbg.exe",
+                    "windbg64.exe","cdb.exe","cdb64.exe","windbgui.exe","windbgui64.exe","x64dbg.exe","x64dbg64.exe",
+                    "x32dbg.exe","x32dbg64.exe","ollydbg.exe","ollydbg64.exe","ollydbg2.exe","ollydbg2_64.exe",
+                    "ollydbg2_de.exe","ollydbg2_de64.exe","ollydbg2_en.exe","ollydbg2_en64.exe","ollydbg2_fr.exe",
+                    "ollydbg2_fr64.exe","ollydbg2_ja.exe","ollydbg2_ja64.exe","ollydbg2_ko.exe","ollydbg2_ko64.exe",
+                    "ollydbg2_ru.exe","ollydbg2_ru64.exe","ollydbg2_zh.exe","ollydbg2_zh64.exe","ollydbg2_zh_cn.exe",
+                    "ollydbg2_zh_cn64.exe","ollydbg2_zh_tw.exe","ollydbg2_zh_tw64.exe","ollydbg2_de.exe",   
+                    "cutter.exe","binaryninja.exe","x64dbg.exe","x32dbg.exe","ollydbg.exe","windbg.exe","cdb.exe",
+                    "ntsd.exe","procexp.exe","procmon.exe","processhacker.exe","cl.exe","link.exe","msbuild.exe",
+                    "nmake.exe","gcc.exe","g++.exe","cmake.exe","ninja.exe","python.exe","pythonw.exe","node.exe",
+                    "npm.exe","dotnet.exe","java.exe","javac.exe","psql.exe","mysql.exe","dbeaver.exe","git.exe",
+                    "tortoisegitproc.exe","vmware.exe","virtualbox.exe","qemu-system-x86_64.exe","adb.exe","docker.exe",
+                    "dottrace.exe","dotmemory.exe","perfview.exe","choco.exe","scoop.exe","winget.exe","postman.exe",
+                    "curl.exe","wget.exe"
+                    ]
+   
 last_modified = None   
 def main_logic():
-    global token, CLIENT_ID, token_valid, fastapi_running, category_set_already, language, previous_saved_games, first_save, fastapi_url, fastapi_port, game_folder, config_path, last_modified, delay_programming, delay_general, message, with_console, fastapi_thread
+    global token, CLIENT_ID, token_valid, category_set_already, language, previous_saved_games, first_save, game_folder, config_path, last_modified, delay_programming, delay_general, message, with_console, kick_token, kick_client_id, kick_client_secret, kick_enabled, kick_missing, kick_failed, known_exe_names
     
 ##    print(config_path)
 ##    print(last_modified)
@@ -616,7 +586,7 @@ def main_logic():
     
     # Prüfung ob ein Wert nicht vorhanden oder leer ist
     # Check if Value not exist or is empty
-    def get_twitch_value(data, key):
+    def get_key_value(data, key):
         """ Holt den Wert aus der JSON-Struktur, falls vorhanden und nicht leer """
         if data:  # Überprüft, ob die Kategorie im Dictionary existiert
             return data.get(key) or None  # Holt den Wert des Schlüssels und gibt None zurück, wenn er leer ist
@@ -624,8 +594,9 @@ def main_logic():
 
     # Werte aus der Config extrahieren
     # Extract Values out of Conifg file
-    CLIENT_ID = get_twitch_value(config["twitch"], "CLIENT_ID")
-    token = get_twitch_value(config["twitch"], "OAuth_token")
+    CLIENT_ID = get_key_value(config["twitch"], "CLIENT_ID")
+    token = get_key_value(config["twitch"], "OAuth_token")
+    kick_token = get_key_value(config["kick"], "OAuth_token")
     
     streamerbot_url= config["streamerbot"]["url"]
     streamerbot_port = config["streamerbot"]["port"]
@@ -651,13 +622,16 @@ def main_logic():
     censor_mode = bool(config["options"]["censor_mode"])
     width, height = map(int, boxart_size.split('x'))
     delay_programming = int(config["options"]["delay_programming"])*1000
-    #delay_general = int(config["options"]["delay_general"])*1000
+    delay_general = int(config["options"]["delay_general"])*1000
+    kick_enabled = bool(config["options"]["kick_enabled"])
     
     last_modified = os.path.getmtime(config_path)
     
     def load_config_live():
         global CLIENT_ID
         global token
+        global kick_token
+        global kick_enabled
         global language
         global delay_programming
         global delay_general
@@ -688,7 +662,7 @@ def main_logic():
         
         # Prüfung ob ein Wert nicht vorhanden oder leer ist
         # Check if Value not exist or is empty
-        def get_twitch_value(data, key):
+        def get_key_value(data, key):
             """ Holt den Wert aus der JSON-Struktur, falls vorhanden und nicht leer """
             if data:  # Überprüft, ob die Kategorie im Dictionary existiert
                 return data.get(key) or None  # Holt den Wert des Schlüssels und gibt None zurück, wenn er leer ist
@@ -696,8 +670,9 @@ def main_logic():
 
         # Werte aus der Config extrahieren
         # Extract Values out of Conifg file
-        CLIENT_ID = get_twitch_value(config["twitch"], "CLIENT_ID")
-        token = get_twitch_value(config["twitch"], "OAuth_token")
+        CLIENT_ID = get_key_value(config["twitch"], "CLIENT_ID")
+        token = get_key_value(config["twitch"], "OAuth_token")
+        kick_token = get_key_value(config["kick"], "OAuth_token")
         
         streamerbot_url= config["streamerbot"]["url"]
         streamerbot_port = config["streamerbot"]["port"]
@@ -724,7 +699,7 @@ def main_logic():
         width, height = map(int, boxart_size.split('x'))
         delay_programming = int(config["options"]["delay_programming"])*1000
         delay_general = int(config["options"]["delay_general"])*1000
-
+        kick_enabled = bool(config["options"]["kick_enabled"])
         setting_language = config["options"]["language"]
 
         german_variants = {"deutsch", "german", "de", "ger", "deu"}
@@ -805,12 +780,17 @@ def main_logic():
         pattern = r"ue_(\d+\.\d+)"  # Muster für "ue_" gefolgt von einer Version (z.B. 5.4, 9.9)
         return bool(re.search(pattern, exe_path.lower()))
 
-    
     def is_ue_or_known_exe_path(exe_path):
-        known_exe_names = ["blender.exe"]
         ue_pattern = r"ue_(\d+\.\d+)"
+        godot_pattern = r"godot_v\d+\.\d+(\.\d+)?(-[a-z0-9_]+)?\.exe"
+
         exe_path_lower = exe_path.lower()
-        return bool(re.search(ue_pattern, exe_path_lower) or any(exe in exe_path_lower for exe in known_exe_names))
+        return bool(
+            re.search(ue_pattern, exe_path_lower)
+            or re.search(godot_pattern, exe_path_lower)
+            or any(exe.lower() in exe_path_lower for exe in known_exe_names)
+        )
+
     
     # Überprüfen, ob obs64.exe noch läuft
     # check if obs64.exe is running
@@ -838,7 +818,7 @@ def main_logic():
 
         return f"http://{streamerbot_url}:{streamerbot_port}/DoAction"
 
-    def send_message(game_folder, category_name):
+    def send_message(game_folder, category_name, kick_category_name=None, kick_failed=None):
         
         streamerbot_url = get_streamerbot_url()
 
@@ -855,7 +835,11 @@ def main_logic():
                 "game": game_folder,
                 "Chat_Message": message,
                 "Message_As_Announcement": asannouncement,
-                "category_name": category_name
+                "category_name": category_name,
+                "kick_enabled": kick_enabled,
+                "kick_category": kick_category_name,
+                "kick_failed": kick_failed,
+                "no_kick_msg": kick_failed is None,
             }
         }
 
@@ -889,7 +873,7 @@ def main_logic():
         return
 
 
-    def category_change(category_name):
+    def category_change(category_name, kick_category_name=None):
         
         streamerbot_url = get_streamerbot_url()
 
@@ -901,7 +885,10 @@ def main_logic():
               "name": streamerbot_category_name,
             },
             "args": {
-                "category": category_name,            
+                "category": category_name,
+                "kick_category": kick_category_name,
+                "kick_enabled": kick_enabled,
+                           
             }
         }
 
@@ -938,7 +925,6 @@ def main_logic():
             
             if not show_console:
                 if not gui:
-                    stop_fastapi(fastapi_thread)
                     start_gui()                
             
             if language == 1:
@@ -952,7 +938,6 @@ def main_logic():
             
             if not show_console:
                 if not gui:
-                    stop_fastapi(fastapi_thread)
                     start_gui()
 
             if language == 1:
@@ -963,7 +948,6 @@ def main_logic():
             
             if not show_console:
                 if not gui:
-                    stop_fastapi(fastapi_thread)
                     start_gui()
 
             if language == 1:
@@ -1004,53 +988,6 @@ def main_logic():
             
     # Funktion, um OAuth-Token zu bekommen
     # Function to retrieve OAuth-Token
-##    def get_access_token_action():
-##        
-##        streamerbot_url = get_streamerbot_url()
-##
-####        print(f"{streamerbot_url}")
-##
-##        # Define the payload
-##        payload = {
-##            "action": {
-##              "name": streamerbot_get_token_name,
-##            },
-##            "args": {
-##                "fastapi_url": fastapi_url,
-##                "fastapi_port": fastapi_port,
-##                "SettingsPath": settingspath
-##            }
-##        }
-##
-##        # Set headers (if required)
-##        headers = {
-##            "Content-Type": "application/json"
-##        }
-##
-##        # Send the POST request
-##        response = requests.post(streamerbot_url, json=payload, headers=headers)
-##
-##        # Check the response
-##        if response.status_code == 204:
-##            if language == 1:
-##                print("\n✅ Get Token erfolgreich ausgeführt!\n")
-##            if language == 0:
-##                print("\n✅ Get token successfull!\n")  
-####            print(response.json())
-##        else:
-##            if language == 1:
-##                print(f"❌ Token erhalten nicht erfolgreich | Error Meldung {response.status_code}")
-##                if not show_console:
-##                    start_logging()
-##                    logging.error(f"❌ Token erhalten nicht erfolgreich | Error Meldung {response.status_code}")
-##            if language == 0:
-##                print(f"❌ Token not received successful with | Status code {response.status_code}")
-##                if not show_console:
-##                    start_logging()
-##                    logging.error(f"❌ Token not received successful | Status Code {response.status_code}")
-##            print(response.text)
-##        
-##        return
     def get_access_token_action():
     
         streamerbot_url = get_streamerbot_url()
@@ -1060,9 +997,7 @@ def main_logic():
                 "name": streamerbot_get_token_name,
             },
             "args": {
-                "fastapi_url": fastapi_url,
-                "fastapi_port": fastapi_port,
-                "SettingsPath": settingspath
+                "ScriptPath": settingspath
             }
         }
 
@@ -1095,7 +1030,6 @@ def main_logic():
             
             if not show_console:
                 if not gui:
-                    stop_fastapi(fastapi_thread)
                     start_gui()                
             
             if language == 1:
@@ -1109,7 +1043,6 @@ def main_logic():
             
             if not show_console:
                 if not gui:
-                    stop_fastapi(fastapi_thread)
                     start_gui()
 
             if language == 1:
@@ -1120,7 +1053,6 @@ def main_logic():
             
             if not show_console:
                 if not gui:
-                    stop_fastapi(fastapi_thread)
                     start_gui()
 
             if language == 1:
@@ -1150,6 +1082,45 @@ def main_logic():
             if language == 0:
                 print(f"❌ Error while saving of Tokens or CLIENT_ID: {e}")
 
+                
+    def get_kick_token():
+        """Fordert einen neuen OAuth2 App Token an und speichert abgelaufene Tokens."""
+        global kick_token, kick_client_id
+        global _access_token, _token_expiry, _token_info
+        token_url = "https://id.kick.com/oauth/token"
+
+        data = {
+            "grant_type": "client_credentials",
+            "client_id": kick_client_id,
+            "client_secret": kick_client_secret,
+        }
+
+        resp = requests.post(token_url, data=data)
+        resp.raise_for_status()
+        token_data = resp.json()
+
+        kick_token = token_data["access_token"]
+        _token_expiry = int(time.time()) + token_data["expires_in"] - 30  # 30s Puffer
+        _token_info = token_data
+
+        return kick_token   
+ 
+    def save_kick_token_to_config(kick_token):
+        
+        """Speichert den Token in die config.json."""
+        try:
+            with open("config.json", "r+", encoding="utf-8") as file:
+                config = json.load(file)
+                config["kick"]["OAuth_token"] = kick_token
+                file.seek(0)
+                json.dump(config, file, indent=4)
+                file.truncate()
+        except Exception as e:
+            if language == 1:
+                print(f"❌ Fehler beim Speichern des Kick Tokens oder der CLIENT_ID: {e}")
+            if language == 0:
+                print(f"❌ Error while saving of the Kick Tokens or CLIENT_ID: {e}")
+
     # Funktion, um eine Twitch-Kategorie per Name zu suchen
     # Function to search Twitch-category with the Name
     def search_twitch_category(token, search_query):
@@ -1178,14 +1149,10 @@ def main_logic():
             
             if is_streamerbot_running():               
 
-                if not fastapi_running:
-                    fastapi_thread = threading.Thread(target=run_fastapi, daemon=True)
-                    fastapi_thread.start()
                     
                 token = get_access_token_action()
 
                 # Warten, bis der Token empfangen und gespeichert wird
-                token_event.wait()
                 time.sleep(2)
                 save_token_to_config(token, CLIENT_ID)
 
@@ -1200,6 +1167,45 @@ def main_logic():
                     print("Streamer.bot not running!") 
 
         return response.json().get("data", [])
+    
+    def search_kick_category(kick_token, search_query):
+        """Sucht nach einer Kategorie, die das Spiel in den Kick-Kategorien enthält."""
+        url = "https://api.kick.com/public/v1/categories"
+        
+        headers = {
+            "Authorization": f"Bearer {kick_token}",
+        }
+        params = {"q": search_query}
+
+        response = requests.get(url, headers=headers, params=params)
+
+        # ---- Token ungültig (401) ----
+        if response.status_code == 401:
+
+            # neuen Token holen
+            kick_token = get_kick_token()
+
+            save_kick_token_to_config(kick_token)
+            time.sleep(2)
+            # Retry mit neuem Token
+            headers["Authorization"] = f"Bearer {kick_token}"
+            response = requests.get(url, headers=headers, params=params)
+
+            if response.status_code != 200:
+                print(f"❌ Fehler auch nach Refresh: {response.status_code}, {response.text}")
+                return []
+
+        # ---- andere Fehler ----
+        elif response.status_code != 200:
+            if language == 1:
+                print(f"❌ Fehler bei der Kategorie-Suche: {response.status_code}, {response.text}")
+            else:
+                print(f"❌ Category search error: {response.status_code}, {response.text}")
+            return []
+
+        # ---- Erfolg ----
+        return response.json().get("data", [])
+
     
     def get_next_greater_3_4_size(width, height):
         """Berechnet die nächstgrößere 3:4-Größe und speichert sie direkt in config.json, falls sie sich geändert hat."""
@@ -1366,10 +1372,6 @@ def main_logic():
             # Falls der aktuelle Ordner **nicht** ausgeschlossen ist, zurückgeben
             return current_folder  
 
-        # Falls kein gültiger Ordner gefunden wurde, gib None zurück
-        return None  
-
-
         # Wenn kein gültiger Ordner gefunden wurde
         if language == 1:
             print("Kein gültiger Ordner gefunden.") # Debug-Ausgabe
@@ -1393,17 +1395,12 @@ def main_logic():
                     print("❌ Kein OAuth-Token gefunden, versuche ihn zu erhalten")
                 if language == 0:
                     print("❌ No OAuth-Token or CLIENT_ID found, try to receive it...")                    
-
-                if not fastapi_running:
-                    fastapi_thread = threading.Thread(target=run_fastapi, daemon=True)
-                    fastapi_thread.start()
                     
                 token = get_access_token_action()
 
                 # Warten, bis der Token empfangen und gespeichert wird
-                token_event.wait()
                 time.sleep(2)
-                save_token_to_config(token, CLIENT_ID)
+                ##save_token_to_config(token, CLIENT_ID)
 
                 if language == 1:
                     print("✅ Token und CLIENT_ID erfolgreich gespeichert!\n")
@@ -1422,19 +1419,12 @@ def main_logic():
 
             if not token_valid:
                 if is_streamerbot_running():
-                    if not fastapi_running:
 
-                        fastapi_thread = threading.Thread(target=run_fastapi, daemon=True)
-                        fastapi_thread.start()
-                        
-                        
                     token = get_access_token_action()
-
                     # Warten, bis der Token empfangen und speichere ihn danach
                     # Wait till token received after that save it
-                    token_event.wait()
-                    ##time.sleep(2)
-                    save_token_to_config(token, CLIENT_ID)
+                    time.sleep(2)
+                    ##save_token_to_config(token, CLIENT_ID)
 
                     if language == 1:
                         print("✅ Token erfolgreich gespeichert!\n")
@@ -1455,18 +1445,37 @@ def main_logic():
     # Spiel in lokaler Datenbank speichern
     # Save game in local database
     def save_saved_games(games):
+        """
+        Speichert die Spiele in game_data.json.
+        Wenn ein Spiel mehrfach in der Liste vorhanden ist, wird nur der letzte Eintrag übernommen.
+        """
         try:
+            # Prüfe, ob die Datei existiert und lade vorhandene Daten
+            if os.path.exists("game_data.json"):
+                with open("game_data.json", "r", encoding="utf-8") as f:
+                    existing_data = json.load(f)
+                    existing_games = existing_data.get("Games", [])
+            else:
+                existing_games = []
+
+            # Erstelle ein Dictionary, um doppelte Spiele nach Name zusammenzuführen
+            merged_games = {g["Game"]: g for g in existing_games}  # existierende Spiele
+            for g in games:
+                merged_games[g["Game"]] = g  # überschreibt alte Einträge mit den neuen Daten
+
+            # Speichere die zusammengeführte Liste
             formatted_data = {
-                "Games": games,  # Liste aller Spiele / List of all Games
-                "Database": {"Games in Database": len(games)}  # Anzahl der Spiele / Number of Games
+                "Games": list(merged_games.values()),
+                "Database": {"Games in Database": len(merged_games)}
             }
+
             with open("game_data.json", "w", encoding="utf-8") as f:
                 json.dump(formatted_data, f, ensure_ascii=False, indent=4)
 
-##            if language == 1:
-##                print("✅ Datei 'game_data.json' wurde erfolgreich gespeichert.")
-##            if language == 0:
-##                print("✅ File 'game_data.json' saved successfully.")
+    ##        if language == 1:
+    ##            print("✅ Datei 'game_data.json' wurde erfolgreich gespeichert.")
+    ##        if language == 0:
+    ##            print("✅ File 'game_data.json' saved successfully.")
 
         except OSError as e:
             error_message = f"❌ Fehler: Problem beim Speichern der Datei 'game_data.json'. Details: {e}" if language == 1 else f"❌ Error: There was a problem while saving 'game_data.json'. Details: {e}"
@@ -1481,25 +1490,41 @@ def main_logic():
                     try:
                         data = json.load(f)
 
-                        # JSON-Format prüfen
+                        # Spiele-Liste extrahieren
                         if isinstance(data, dict) and "Games" in data:
-                            return data["Games"]  # Nur die Spiele-Liste zurückgeben / Give only Game List
-
-                        elif isinstance(data, list):  
-                            # Falls es eine Liste ist, neu formatieren
-                            # If it is a List, format new
-                            formatted_data = {
-                                "Games": data,
-                                "Database": {"Games in Database": len(data)}
-                            }
-                            save_saved_games(data)  # Speichern im neuen Format / Save in new format
-                            return data
-                        
+                            games = data["Games"]
+                        elif isinstance(data, list):
+                            games = data
                         else:
                             if language == 1:
                                 raise ValueError("Ungültige JSON-Struktur.")
                             if language == 0:
                                 raise ValueError("Non valid JSON structure.")
+
+                        # Kick-Keys ergänzen und Box Art umbenennen
+                        for i, game in enumerate(games):
+                            new_game = {}
+                            for k, v in game.items():
+                                if k == "Box Art":
+                                    new_game["Twitch Box Art"] = v  # Name ändern, Inhalt beibehalten
+                                else:
+                                    new_game[k] = v
+
+                            # Fehlende Kick-Keys hinzufügen
+                            if "Kick Category Name" not in new_game:
+                                new_game["Kick Category Name"] = ""
+                            if "Kick Category ID" not in new_game:
+                                new_game["Kick Category ID"] = ""
+                            if "Kick Thumbnail" not in new_game:
+                                new_game["Kick Thumbnail"] = ""
+
+                            games[i] = new_game
+
+                        # Datei direkt aktualisieren
+                        save_saved_games(games)
+
+                        return games  # Nur die Spiele-Liste zurückgeben
+
                     except json.JSONDecodeError:
                         if language == 1:
                             print("❌ Fehler: Ungültiges JSON-Format in der Datei 'game_data.json'.")
@@ -1520,6 +1545,7 @@ def main_logic():
             save_saved_games([])
             return []
 
+
     saved_games = load_saved_games()
 
     # Set für Spiele, die bereits ausgegeben wurden
@@ -1530,8 +1556,12 @@ def main_logic():
     # Global variable for running game
     game_folder = None  # Initialisiert als None / initialised as none
     category_name = "Just Chatting"
+    kick_category_name = "Just Chatting"
     if is_streamerbot_running():
-        category_change(category_name)
+        if kick_enabled:
+            category_change(category_name, kick_category_name)
+        else:
+            category_change(category_name)
     obs_started = False
     streamerbot_started = False
     displayed_warning = False
@@ -1545,8 +1575,7 @@ def main_logic():
     print("-" * 90)
 
     while True:
-
-        
+       
         current_modified = os.path.getmtime(config_path)
         
         if current_modified != last_modified:
@@ -1592,6 +1621,9 @@ def main_logic():
                 #Überspringe verschiedene nicht gewollte Exe dateien
                 #Skip not wanted exe files
                 
+                if "steamapps/common/obs studio" in exe_path.replace("\\", "/").lower():
+                    continue
+                
                 if "launcher" in exe_lower and exe_lower.endswith(".exe"):
                     continue
                 
@@ -1610,25 +1642,59 @@ def main_logic():
                 if "errorreport" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
 
-                if "EasyAntiCheat" in exe_lower and exe_lower.endswith(".exe"): 
+                if "easyanticheat" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
                 
-                if "Uninst" in exe_lower and exe_lower.endswith(".exe"): 
+                if "uninst" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
                 
-                if "Unins0" in exe_lower and exe_lower.endswith(".exe"): 
+                if "unins0" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
                 
+                if "unity.licensing" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue
+                
+                if "updater" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue
+
+                if "webhandler" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue
+                
+                if "weblauncher" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue
+                
+                if "wslservice" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue
+
+                if "msedge" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue
+                if "gamingservices" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue  
+                if "cortana" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue 
+                if "storedesktopextension" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue    
+                if "winstore.app" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue              
+                if "video.ui" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue              
+                if "calculatorapp" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue 
+                if "gamebarft" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue 
+                if "phoneexperiencehost" in exe_lower and exe_lower.endswith(".exe"):
+                    continue 
+
+                if "backgroundservice" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue                                
+                                    
                 if "vc_redist" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
                 
-##                if is_ue_exe_path(exe_path.lower()):
-##                    game_folder = "Software and game development"
-##                    ##print("Unreal Engine Path")
-                
                 if is_ue_or_known_exe_path(exe_path.lower()):
                     game_folder = "Software and game development"
-                    ##print("Unreal Engine Path")                
+                    kick_game_folder = "Software Development"
+              
                 else:    
                     # Gültigen Root-Ordner finden
                     # Find valid root folder
@@ -1645,6 +1711,7 @@ def main_logic():
                     # Extrac gamename (Folder of .exe)
                     
                     game_folder = os.path.basename(root_folder)
+                    kick_game_folder = game_folder
 
 ##                print(f" Debug output game_folder: {game_folder}")
 
@@ -1652,10 +1719,6 @@ def main_logic():
                 # Edge cases setting game_folder forceful to get twitch match            
                 if "Intergrade" in game_folder:
                     game_folder = remove_intergrade_from_folder(game_folder)
-
-                # Beispiel zur Verwendung
-##                if is_ue_game_folder(game_folder.lower()):
-##                    game_folder = "Software and game development"
 
                 if is_ue_or_known_programming_folder(game_folder.lower()):
                     game_folder = "Software and game development"                     
@@ -1707,6 +1770,7 @@ def main_logic():
 
                 if game_folder == "Counter-Strike Global Offensive":
                     game_folder = "Counter-Strike"
+                    kick_game_folder = "Counter-Strike 2"
                     
                 if game_folder == "rocketleague":
                     game_folder = "Rocket League"
@@ -1722,18 +1786,26 @@ def main_logic():
 
                 # Prüfen, ob das Spiel bereits in der JSON-Datei vorhanden ist
                 # Check if Game is already saved in the local Database
+                saved_games = load_saved_games()
                 game_data = next((game for game in saved_games if game["Game"] == game_folder), None)
+                
+                if game_data and kick_enabled and unique_id not in seen_processes:
+                    kick_id = str(game_data.get("Kick Category ID") or "").strip()
+                    kick_name = str(game_data.get("Kick Category Name") or "").strip()
 
-                if game_data and game_folder not in displayed_games:
+                    kick_missing = (kick_id == "" or kick_name == "")
+                # Spiel gilt nur als in DB vorhanden, wenn game_data existiert und Kick nicht fehlt
+                if game_data and game_folder not in displayed_games and not kick_missing:
 
-                    # Spiel ist bereits in der JSON-Datei, gib die Twitch-Daten aus
-                    # Game already in local database, show data
+                    # Spiel ist bereits in der JSON-Datei, gib die Twitch- und Kick-Daten aus
                     if language == 1:
                         print(f"\n✅ Gestartet: PID {pid}, Spiel: {game_folder} Path: {path_norm}\n")
                         print("-" * 90)
                         print(f"   🎮 Gefundene Twitch-Kategorie für '{game_folder}' in lokaler Datenbank:")
                         print(f"   📝 {game_data['Twitch Category Name']} (ID: {game_data['Twitch Category ID']})")
-                        print(f"   📸 Box Art: {game_data['Box Art']}")
+                        print(f"   📸 Twitch Box Art: {game_data['Twitch Box Art']}")
+                        if kick_enabled and "Kick Category Name" in game_data:
+                            print(f"   🟢 Kick Kategorie: {game_data['Kick Category Name']} (ID: {game_data['Kick Category ID']})")
                         print("-" * 90)
 
                     if language == 0:
@@ -1741,23 +1813,34 @@ def main_logic():
                         print("-" * 90)
                         print(f"   🎮 Found Twitch category for '{game_folder}' in local database:")
                         print(f"   📝 {game_data['Twitch Category Name']} (ID: {game_data['Twitch Category ID']})")
-                        print(f"   📸 Box Art: {game_data['Box Art']}")
+                        print(f"   📸 Twitch Box Art: {game_data['Twitch Box Art']}")
+                        if kick_enabled and "Kick Category Name" in game_data:
+                            print(f"   🟢 Kick category: {game_data['Kick Category Name']} (ID: {game_data['Kick Category ID']})")
                         print("-" * 90)
-
 
                     # Füge das Spiel der ausgegebenen Liste hinzu, um es nicht erneut anzuzeigen
                     # Add game to outputted list, so it does not show again                
                     category_name = game_data['Twitch Category Name']
+                    if kick_enabled:
+                        kick_category_name = game_data['Kick Category Name']
                     displayed_games.add(game_folder)
                     if is_streamerbot_running():
                         if category_set_already != category_name:
-                            category_change(category_name)
+                            if kick_enabled:
+                                category_change(category_name, kick_category_name)
+                            else:
+                                category_change(category_name)
                             category_set_already = category_name
                             if message:
-                                send_message(game_folder, category_name)
+                                if kick_enabled:
+                                    send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                else:
+                                    send_message(game_folder, category_name)
+                                
                     
                 
-                elif not game_data:
+                elif not game_data or kick_missing:
+                     
                     if not displayed_warning:
                         if language == 1:
                             print(f"\n✅ Gestartet: PID {pid}, Spiel: {game_folder}, Path: {path_norm}\n")
@@ -1775,7 +1858,7 @@ def main_logic():
                         # Speicher die Spiel- und Twitch-Daten in einem Dictionary
                         # Save game and twitch data in a dictionary
                         if categories:
-                            best_match = None
+                            best_match = False
                             highest_score = 0
                             # Zuerst exakte Übereinstimmung prüfen
                             for category in categories:
@@ -1803,6 +1886,42 @@ def main_logic():
                                                 highest_score = fallback_score
                                                 best_match = category                                      
 
+                            
+                           
+                            if kick_enabled:
+                                
+                                kick_categories = search_kick_category(kick_token, kick_game_folder)
+                                if kick_categories:
+                                    kick_best_match = None
+                                    highest_score_kick = 0
+
+                                    # Exakte Übereinstimmung prüfen
+                                    for kick_category in kick_categories:
+                                        if kick_game_folder.lower() == kick_category["name"].lower():
+                                            kick_best_match = kick_category
+                                            break
+
+                                    # Falls kein exakter Match, Fuzzy-Matching
+                                    if not kick_best_match:
+                                        for kick_category in kick_categories:
+                                            score = fuzz.ratio(kick_game_folder.lower(), kick_category["name"].lower(), score_cutoff=threshold)
+                                            if score is not None and score > highest_score_kick:
+                                                highest_score_kick = score
+                                                kick_best_match = kick_category
+                                            else:
+                                                kick_game_splitted = (
+                                                    kick_game_folder.lower()
+                                                    if kick_game_folder.isupper()
+                                                    else re.sub(r'(?<!^)(?=[A-Z])', ' ', kick_game_folder).lower()
+                                                )
+                                                fallback_score = fuzz.token_sort_ratio(kick_game_splitted, kick_category["name"].lower())
+                                                if fallback_score > threshold and fallback_score > highest_score_kick:
+                                                    final_check_score = fuzz.ratio(kick_game_splitted, kick_category["name"].lower())
+                                                    if final_check_score > threshold:
+                                                        highest_score_kick = fallback_score
+                                                        kick_best_match = kick_category
+
+                            print(best_match)
                             if best_match:
                                 if game_folder == "Silent Hill 2":
                                     game_data = {
@@ -1810,7 +1929,7 @@ def main_logic():
                                         "Path": os.path.normpath(exe_path),  
                                         "Twitch Category Name": best_match["name"],
                                         "Twitch Category ID": "2058570718",
-                                        "Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/2058570718_IGDB-285x380.jpg"
+                                        "Twitch Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/2058570718_IGDB-285x380.jpg"
                                     }
                                 elif game_folder == "Spyro The Dragon":
                                     category['id'] = "1885901697"
@@ -1819,7 +1938,7 @@ def main_logic():
                                         "Path": os.path.normpath(exe_path),  
                                         "Twitch Category Name": best_match["name"],
                                         "Twitch Category ID": "1885901697",
-                                        "Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
+                                        "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
                                     }
                                 elif game_folder == "Software and game development":
                                     game_data = {
@@ -1827,7 +1946,7 @@ def main_logic():
                                         "Path": "Not available in this Category",  
                                         "Twitch Category Name": best_match["name"],
                                         "Twitch Category ID": best_match["id"],
-                                        "Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
+                                        "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
                                     }                                    
                                 else:
                                     game_data = {
@@ -1835,8 +1954,38 @@ def main_logic():
                                         "Path": os.path.normpath(exe_path),  
                                         "Twitch Category Name": best_match["name"],
                                         "Twitch Category ID": best_match["id"],
-                                        "Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
+                                        "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
                                     }
+                                    
+                                # Kick-Ergebnis ergänzen
+                                if kick_best_match:
+                                    game_data["Kick Category Name"] = kick_best_match["name"]
+                                    game_data["Kick Category ID"] = str(kick_best_match["id"])
+                                    game_data["Kick Thumbnail"] = kick_best_match["thumbnail"]
+                                    kick_missing = False
+                                else:
+                                    kick_best_match = {
+                                        "name": "No Match",
+                                        "id": "No Match",
+                                        "thumbnail": "No Match"
+                                    }
+                                    kick_missing = False                                  
+                                    if language == 1:
+                                        print(f"⚠️ Keine Kick-Kategorie für '{kick_game_folder}' gefunden.")
+                                        if not show_console:
+                                            start_logging()
+                                            logging.info(f"⚠️ Keine Kick-Kategorie für '{kick_game_folder}' gefunden.")
+                                            logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
+                                    if language == 0:
+                                        print(f"⚠️ No Kick Category found for '{game_folder}'.")
+                                        if not show_console:
+                                            start_logging()
+                                            logging.info(f"⚠️ No Kick Category found for '{kick_game_folder}'.")
+                                            logging.info(f"⚠ Path from which game name got extracted '{path_norm}")
+                                    kick_failed = True
+                                    if message:
+                                        send_message(game_folder, category_name, kick_category_name, kick_failed)
+                            
                                 saved_games.append(game_data)
 
                                 # Ausgabe der gespeicherten Daten, aber nur einmal
@@ -1846,25 +1995,37 @@ def main_logic():
                                         print("-" * 90)
                                         print(f"   🎮 Gefundene Twitch-Kategorie für '{game_folder}':")
                                         print(f"   📝 {best_match['name']} (ID: {best_match['id']})")
-                                        print(f"   📸 Box Art: {get_largest_box_art_url(best_match['box_art_url'], best_match['id'], width, height)}")
+                                        print(f"   📸 Twitch Box Art: {get_largest_box_art_url(best_match['box_art_url'], best_match['id'], width, height)}")
+                                        if kick_enabled:
+                                            print(f"   🟢 Kick Kategorie: {kick_best_match['name']} (ID: {kick_best_match['id']})")
                                         print("-" * 90)
 
                                     if language == 0:
                                         print("-" * 90) 
                                         print(f"   🎮 Found Twitch category for '{game_folder}':")
                                         print(f"   📝 {best_match['name']} (ID: {best_match['id']})")
-                                        print(f"   📸 Box Art: {get_largest_box_art_url(best_match['box_art_url'], best_match['id'], width, height)}")
+                                        print(f"   📸 Twitch Box Art: {get_largest_box_art_url(best_match['box_art_url'], best_match['id'], width, height)}")
+                                        if kick_enabled:
+                                            print(f"   🟢 Kick Category: {kick_best_match['name']} (ID: {kick_best_match['id']})")
                                         print("-" * 90)
 
-                                    category_name = best_match['name'] 
+                                    category_name = best_match['name']
+                                    if kick_enabled:
+                                        kick_category_name = kick_best_match['name']
                                     displayed_games.add(game_folder)
                                     first_save = True
                                     if is_streamerbot_running():
                                         if category_set_already != category_name:
-                                            category_change(category_name)
+                                            if kick_enabled:
+                                                category_change(category_name, kick_category_name)
+                                            else:
+                                                category_change(category_name)
                                             category_set_already = category_name
                                             if message:
-                                                send_message(game_folder, category_name)
+                                                if kick_enabled:                                                
+                                                    send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                                else:
+                                                    send_message(game_folder, category_name)
                             else:
                                 if not displayed_warning:
                                     if language == 1:
@@ -1883,7 +2044,10 @@ def main_logic():
                                     displayed_warning = True
                                     failed = True
                                     if message:
-                                        send_message(game_folder, category_name)
+                                        if kick_enabled:
+                                            send_message(game_folder, category_name, kick_category_name)
+                                        else:
+                                            send_message(game_folder, category_name)
                         else:
                             if not displayed_warning:
                                 if language == 1:
@@ -1902,7 +2066,10 @@ def main_logic():
                                 displayed_warning = True
                                 failed = True
                                 if message:
-                                    send_message(game_folder, category_name)
+                                    if kick_enabled:
+                                        send_message(game_folder, category_name, kick_category_name)
+                                    else:                                    
+                                        send_message(game_folder, category_name)   
                     else:
                         if not displayed_warning:
                             if game_data == None:
@@ -1929,7 +2096,10 @@ def main_logic():
                             failed = True
                             not_in_local_db = True
                             if message:
-                                send_message(game_folder, category_name)
+                                if kick_enabled:                                
+                                    send_message(game_folder, category_name, kick_category_name)
+                                else:                                
+                                    send_message(game_folder, category_name)
 
                             
             except (psutil.AccessDenied, psutil.NoSuchProcess):
@@ -1939,6 +2109,7 @@ def main_logic():
 
         def delayed_category_reset(game_folder, displayed_games, seen_processes, current_seen):
             global delay_programming
+            global known_exe_names
 
             delay_ms = delay_programming
 
@@ -1949,17 +2120,10 @@ def main_logic():
                ## print(displayed_games)
 
                 # Überprüfen, ob der Ordner noch offen ist
-                exe_list = ["UnrealEditor.exe", "Blender.exe", "AnotherTool.exe"]
-##                folder_open = False
-##                try:
-##                    for proc in psutil.process_iter(["pid", "name", "exe"]):
-##                        # Sicherstellen, dass exe nicht None ist
-##                        if proc.info["exe"] and "UnrealEditor.exe".lower() in proc.info["exe"].lower():
-##                            folder_open = True
-##                            break
-##                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-##                    pass
-
+                ##exe_list = ["UnrealEditor.exe", "Blender.exe", "AnotherTool.exe"]
+                exe_list = known_exe_names
+                print(exe_list)
+                
                 folder_open = False
                 try:
                     for proc in psutil.process_iter(["pid", "name", "exe"]):
@@ -1981,12 +2145,19 @@ def main_logic():
                 if game_folder in displayed_games:
                     displayed_games.remove(game_folder)
                     category_name = "Just Chatting"
+                    kick_category_name = "Just Chatting"
                     failed = False                    
                     if is_streamerbot_running():
                         if category_set_already != category_name:
-                            category_change(category_name)
+                            if kick_enabled:
+                                category_change(category_name, kick_category_name)
+                            else:
+                                category_change(category_name)
                             if message:
-                                send_message(game_folder, category_name)
+                                if kick_enabled:
+                                    send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                else:
+                                    send_message(game_folder, category_name)
                     category_set_already = category_name
 
                 # Reset den Status nach der Verzögerung
@@ -2024,11 +2195,18 @@ def main_logic():
                 if game_folder in displayed_games:
                     displayed_games.remove(game_folder)
                     category_name = "Just Chatting"
+                    kick_category_name = "Just Chatting"
                     if is_streamerbot_running():
                         if category_set_already != category_name:
-                            category_change(category_name)
+                            if kick_enabled:
+                                category_change(category_name, kick_category_name)
+                            else:
+                                category_change(category_name)
                             if message:
-                                send_message(game_folder, category_name)
+                                if kick_enabled:
+                                    send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                else:
+                                    send_message(game_folder, category_name)
                     category_set_already = category_name
 
                 delayed_reset_called[game_folder] = False
@@ -2071,13 +2249,20 @@ def main_logic():
                     if game_folder in displayed_games:
                         displayed_games.remove(game_folder)
                         category_name = "Just Chatting"
+                        kick_category_name = "Just Chatting"
                         
                         failed = False
                         if is_streamerbot_running():
                             if category_set_already != category_name:
-                                category_change(category_name)
+                                if kick_enabled:                                
+                                    category_change(category_name, kick_category_name)
+                                else:                                
+                                    category_change(category_name) 
                                 if message:
-                                    send_message(game_folder, category_name)
+                                    if kick_enabled:
+                                        send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                    else:
+                                        send_message(game_folder, category_name)
                         category_set_already = category_name
 
                         
