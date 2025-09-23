@@ -3,35 +3,45 @@ name: Release Category_Switcher
 on:
   push:
     tags:
-      - 'v*'   # nur bei Tag-Push
+      - 'v*'
 
 jobs:
   release:
     runs-on: windows-latest
+    permissions:
+      contents: write
+
     steps:
+      # 1️⃣ Checkout
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # -------------------------------
-      # 1️⃣ Category_Switcher.zip (EXE + Resources + Version + Settings)
-      # -------------------------------
+      # 2️⃣ Version auslesen für Release-Name
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $json = Get-Content -Raw Version.json | ConvertFrom-Json
+          $program = $json.program_version
+          $settings = $json.settings_version
+          $releaseName = "Category Switcher Version $program & Settingsmenu $settings"
+          Write-Output "release_name=$releaseName" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
+
+      # 3️⃣ Category_Switcher.zip erstellen
       - name: Pack Category_Switcher.zip
         shell: pwsh
         run: |
           $tempDir = "ReleasePackage"
           New-Item -ItemType Directory -Path $tempDir
 
-          Copy-Item -Recurse -Force "Release EXE" "$tempDir\"
+          Copy-Item -Recurse -Force "Release EXE" "$tempDir\Release EXE"
           Copy-Item -Recurse -Force "Resources" "$tempDir\Resources"
-          Copy-Item -Force "Version.json","settings.xaml" "$tempDir"
+          Copy-Item -Force "Version.json","settings.xaml","Changelog.md" "$tempDir"
 
           Compress-Archive -Path "$tempDir\*" -DestinationPath "Category_Switcher.zip" -Force
-
           Remove-Item -Recurse -Force $tempDir
 
-      # -------------------------------
-      # 2️⃣ Category_Switcher Source.zip (alles außer Release EXE, .git, .github, alte ZIPs)
-      # -------------------------------
+      # 4️⃣ Category_Switcher Source.zip erstellen------------------
       - name: Pack Category_Switcher Source.zip
         shell: pwsh
         run: |
@@ -39,19 +49,70 @@ jobs:
           New-Item -ItemType Directory -Path $tempDir
 
           Copy-Item -Recurse -Force "Resources" "$tempDir\Resources"
-          Copy-Item -Force "Version.json","settings.xaml" "$tempDir"
+          Copy-Item -Force "Version.json","settings.xaml","Changelog.md" "$tempDir"
           Copy-Item -Force "Category_Switcher.py" "$tempDir"
 
           Compress-Archive -Path "$tempDir\*" -DestinationPath "Category_Switcher Source.zip" -Force
 
           Remove-Item -Recurse -Force $tempDir
 
-      # -------------------------------
-      # 3️⃣ GitHub Release erstellen
-      # -------------------------------
+      # 5️⃣ Changelog für aktuellen Tag auslesen (Markdown bleibt 1:1)
+      - name: Extract changelog for current tag
+        id: changelog
+        shell: pwsh
+        run: |
+          $tag = "${GITHUB_REF##*/}"   # z.B. v2.0-Sv1.0
+          $lines = Get-Content Changelog.md
+
+          # Regex: sucht Zeilen wie "## :small_blue_diamond: **v2.0-Sv1.0 (DE)**"
+          $pattern = "^\#\#.*\*\*$tag"
+          $startLine = ($lines | Select-String -Pattern $pattern | Select-Object -First 1)
+
+          if (-not $startLine) {
+              # Fallback: Standardtext im gleichen Changelog-Format
+              $changelog = @"
+            ## :small_blue_diamond: **$tag (DE)**
+
+            ### 🛠️ Fixes
+            - Kleine Fehlerbehebungen
+
+            ## :small_blue_diamond: **$tag (EN)**
+
+            ### 🛠️ Fixes
+            - Minor fixes
+            "@
+          }
+          else {
+              $start = $startLine.LineNumber - 1   # 0-basiert
+
+              # Nächste Version finden
+              $next = ($lines[($start+1)..($lines.Length-1)] | Select-String -Pattern '^\#\#\s+:small_blue_diamond:' | Select-Object -First 1)
+              if ($next) {
+                  $end = $next.LineNumber - 2
+              } else {
+                  $end = $lines.Length - 1
+              }
+
+              # Alles zwischen Start und End übernehmen (DE + EN)
+              $changelogLines = $lines[$start..$end]
+              $changelog = ($changelogLines -join "`n").Trim()
+          }
+
+          # 1:1 Markdown Output ins GITHUB_OUTPUT
+          Write-Output "changelog<<EOF" >> $env:GITHUB_OUTPUT
+          Write-Output "$changelog" >> $env:GITHUB_OUTPUT
+          Write-Output "EOF" >> $env:GITHUB_OUTPUT
+
+
+      # 6️⃣ GitHub Release erstellen
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ steps.version.outputs.release_name }}
+          body: ${{ steps.changelog.outputs.changelog }}
           files: |
             Category_Switcher.zip
             Category_Switcher Source.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
