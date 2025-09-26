@@ -25,86 +25,85 @@ jobs:
           $program = $json.program_version
           $settings = $json.settings_version
           $releaseName = "Category Switcher Version $program & Settingsmenu $settings"
-          Write-Output "release_name=$releaseName" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
+          "release_name=$releaseName" >> $env:GITHUB_OUTPUT
 
-      # 3️⃣ Category_Switcher.zip erstellen
+      # 3️⃣ Alte ZIPs löschen (falls vorhanden)
+      - name: Cleanup old ZIPs
+        shell: pwsh
+        run: |
+          Remove-Item "Category_Switcher.zip","Category_Switcher Source.zip" -ErrorAction SilentlyContinue
+
+      # 4️⃣ Funktion zum Kopieren von Ordnern/Dateien
+      - name: Define copy function
+        shell: pwsh
+        run: |
+          function Copy-Content($items, $target) {
+              foreach ($item in $items) {
+                  if (Test-Path $item) {
+                      Copy-Item -Recurse -Force $item "$target\$item"
+                  }
+              }
+          }
+
+      # 5️⃣ Category_Switcher.zip erstellen
       - name: Pack Category_Switcher.zip
         shell: pwsh
         run: |
           $tempDir = "ReleasePackage"
           New-Item -ItemType Directory -Path $tempDir
 
-          Copy-Item -Recurse -Force "Release EXE" "$tempDir\Release EXE"
-          Copy-Item -Recurse -Force "Resources" "$tempDir\Resources"
-          Copy-Item -Force "Version.json","settings.xaml","Changelog.md" "$tempDir"
+          Copy-Content @("Release EXE","Resources") $tempDir
+          Copy-Content @("Version.json","settings.xaml","Changelog.md") $tempDir
 
           Compress-Archive -Path "$tempDir\*" -DestinationPath "Category_Switcher.zip" -Force
           Remove-Item -Recurse -Force $tempDir
 
-      # 4️⃣ Category_Switcher Source.zip erstellen------------------
+      # 6️⃣ Category_Switcher Source.zip erstellen
       - name: Pack Category_Switcher Source.zip
         shell: pwsh
         run: |
           $tempDir = "SourcePackage"
           New-Item -ItemType Directory -Path $tempDir
 
-          Copy-Item -Recurse -Force "Resources" "$tempDir\Resources"
-          Copy-Item -Force "Version.json","settings.xaml","Changelog.md" "$tempDir"
-          Copy-Item -Force "Category_Switcher.py" "$tempDir"
+          Copy-Content @("Resources") $tempDir
+          Copy-Content @("Version.json","settings.xaml","Changelog.md","Category_Switcher.py") $tempDir
 
           Compress-Archive -Path "$tempDir\*" -DestinationPath "Category_Switcher Source.zip" -Force
-
           Remove-Item -Recurse -Force $tempDir
 
-      # 5️⃣ Changelog für aktuellen Tag auslesen (Markdown bleibt 1:1)
+      # 7️⃣ Changelog für aktuellen Tag auslesen
       - name: Extract changelog for current tag
         id: changelog
         shell: pwsh
         run: |
           $tag = "${GITHUB_REF##*/}"   # z.B. v2.0-Sv1.0
           $lines = Get-Content Changelog.md
-
-          # Regex: sucht Zeilen wie "## :small_blue_diamond: **v2.0-Sv1.0 (DE)**"
-          $pattern = "^\#\#.*\*\*$tag"
+          $pattern = "^\#\#.*\*\*$tag(\s*\(.*\))?"
           $startLine = ($lines | Select-String -Pattern $pattern | Select-Object -First 1)
 
           if (-not $startLine) {
-              # Fallback: Standardtext im gleichen Changelog-Format
-              $changelog = @"
-            ## :small_blue_diamond: **$tag (DE)**
+          $changelog = @"
+          ## :small_blue_diamond: **$tag (DE)**
+          ### 🛠️ Fixes
+          - Kleine Fehlerbehebungen
 
-            ### 🛠️ Fixes
-            - Kleine Fehlerbehebungen
-
-            ## :small_blue_diamond: **$tag (EN)**
-
-            ### 🛠️ Fixes
-            - Minor fixes
-            "@
-          }
-          else {
-              $start = $startLine.LineNumber - 1   # 0-basiert
-
-              # Nächste Version finden
+          ## :small_blue_diamond: **$tag (EN)**
+          ### 🛠️ Fixes
+          - Minor fixes
+          "@
+          } else {
+              $start = $startLine.LineNumber - 1
               $next = ($lines[($start+1)..($lines.Length-1)] | Select-String -Pattern '^\#\#\s+:small_blue_diamond:' | Select-Object -First 1)
-              if ($next) {
-                  $end = $next.LineNumber - 2
-              } else {
-                  $end = $lines.Length - 1
-              }
-
-              # Alles zwischen Start und End übernehmen (DE + EN)
+              if ($next) { $end = $next.LineNumber - 2 } else { $end = $lines.Length - 1 }
               $changelogLines = $lines[$start..$end]
               $changelog = ($changelogLines -join "`n").Trim()
           }
 
-          # 1:1 Markdown Output ins GITHUB_OUTPUT
           Write-Output "changelog<<EOF" >> $env:GITHUB_OUTPUT
           Write-Output "$changelog" >> $env:GITHUB_OUTPUT
           Write-Output "EOF" >> $env:GITHUB_OUTPUT
 
-
-      # 6️⃣ GitHub Release erstellen
+      # 8️⃣ GitHub Release erstellen
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
