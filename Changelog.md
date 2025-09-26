@@ -38,9 +38,6 @@
 - 🎮 Fix for **Arena Breakout: Infinite**  
 - 🔧 Miscellaneous small fixes
 
-
-OLD Versions:
-
 ## :small_blue_diamond: **v1.1.5**
 
 ### :white_check_mark: General
