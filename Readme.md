@@ -245,3 +245,12 @@ Share your **game_data.json** after some time of use, or if you're feeling adven
 🔒 Privacy Tip: If you don’t want to expose your paths, set **Censor Mode** to true in config.json and run the program once. Then you will get an censored game_data.json to share 🔧✨
 
 If you encounter any issues or have questions, feel free to reach out! 🚀  
+
+---
+
+<details><summary style="font-size: 1.3em; font-weight: bold;"><h2>Credits</h2></summary>
+
+Base GUI Code from [MustachedManiac](https://mustachedmaniac.com/)
+<br>
+Icons from [Icons8](https://icons8.com/)
+</details>
