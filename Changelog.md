@@ -15,7 +15,7 @@
 
 ### 🛠️ Kategorie-Matching Fixes
 - 🖥️ Korrekte Erkennung für die meisten **Programme & Entwickler-Tools**  
-- 🎮 Fix für **Arena Breakout: Infinite**  
+- 🎮 Fix für **Arena Breakout: Infinite** und **SCP: 5K**
 - 🔧 Verschiedene kleinere Bugfixes  
 
 ## :small_blue_diamond: **v2.0-Sv1.0 (EN)**
@@ -35,7 +35,7 @@
 
 ### 🛠️ Category Matching Fixes
 - 🖥️ Correct recognition for most **Programming & Development software**  
-- 🎮 Fix for **Arena Breakout: Infinite**  
+- 🎮 Fix for **Arena Breakout: Infinite** and **SCP: 5K** 
 - 🔧 Miscellaneous small fixes
 
 ## :small_blue_diamond: **v1.1.5**
