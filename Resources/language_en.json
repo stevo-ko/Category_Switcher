@@ -19,6 +19,8 @@
     "Seconds": "Seconds",
     "About": "About Category Switcher",
     "Save": "Save Settings",
+    "Save_Success": "Settings saved successfully",
+    "Save_Fail": "Error while saving settings: ",
     "Back": "Back to Settings",
     "Settingmenu_Version": "Settingsmenu Version",
     "Program_Version": "Program Version" 
@@ -237,7 +239,7 @@
     "GithubBtn": "Download from Github",
     "CancelBtn": "Cancel",
     "Downloading": "Downloading...",
-    "No_Update": "No updates available",
+    "No_Update": "Already latest version installed",
     "Update_Available": "Update available!",
     "RateLimit": "Github API Rate Limit reached, please try in again later",
     "Unpacking": "Unpacking...",
