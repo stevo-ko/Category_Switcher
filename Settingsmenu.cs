@@ -140,6 +140,8 @@ public class CPHInline
                     if (_lastUpdateResult.ProgramUpdate)
                     {
                         ((Grid)currentWindow.FindName("UpdateOverlay")).Visibility = Visibility.Visible;
+                        ((TextBlock)currentWindow.FindName("YourVersionSettings")).Text = "v" + _lastUpdateResult.CurrentSettingsVersion;
+                        ((TextBlock)currentWindow.FindName("YourVersionProgram")).Text = "v" + _lastUpdateResult.CurrentProgramVersion;                                             
                         ((TextBlock)currentWindow.FindName("UpdateVersionSetting")).Text = "v" + _lastUpdateResult.RemoteSettingsVersion;
                         ((TextBlock)currentWindow.FindName("UpdateVersionProgram")).Text = "v" + _lastUpdateResult.RemoteProgramVersion;
                         ((TextBlock)currentWindow.FindName("ArrowProgram")).Visibility = Visibility.Visible;
@@ -159,7 +161,9 @@ public class CPHInline
                             var emojiMap = BuildGitHubEmojiUrlMap();
                             SetMarkdownToRichTextBoxRich(changelogBox, markdown, emojiMap);
                             ((Button)currentWindow.FindName("btnUpdate")).Visibility = Visibility.Visible;
+
                         }
+                    ((Button)currentWindow.FindName("btnBackUpdate")).Click += BtnBack_Click;
                     //btnCheckUpdate_Click(this, new RoutedEventArgs());
                     }
                     else
@@ -1897,11 +1901,23 @@ public class CPHInline
         {
             File.WriteAllText(configPath, currentSettingsJson, new System.Text.UTF8Encoding(false));
             //originalSettingsJson = updatedSettingsJson;
-            MessageBox.Show("Einstellungen erfolgreich gespeichert.", "Erfolg", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(
+                currentLanguage == "de" ? "Einstellungen erfolgreich gespeichert." : "Settings saved successfully.",
+                currentLanguage == "de" ? "Erfolg" : "Success",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information
+            );
+
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Fehler beim Speichern: {ex.Message}", "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(
+                currentLanguage == "de" ? $"Fehler beim Speichern: {ex.Message}" : $"Error while saving: {ex.Message}",
+                currentLanguage == "de" ? "Fehler" : "Error",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error
+            );
+
         }
 
         // Fenster schließen, wenn gewünscht
@@ -3189,7 +3205,7 @@ public class CPHInline
     /// == DE: Öffnet die Github-Seite zum manuellen Download der neuesten Version | EN: Opens the Github page to manually Download the latest Version ==
     private void btnGithub_Click(object sender, RoutedEventArgs e)
     {
-        string url = "https://github.com/stefand571/Category_Switcher/releases/latest";
+        string url = "https://github.com/stevo-ko/Category_Switcher/releases/latest";
         ProcessStartInfo psi = new ProcessStartInfo
         {
             FileName = url,
@@ -3262,8 +3278,8 @@ public class CPHInline
         var CancelDownload = (Button)window.FindName("btnCancelDownload");
         var GithubBtn = (Button)window.FindName("btnGithub");
         var Update = (Button)window.FindName("btnUpdate");
-        string FolderPathTest = Path.Combine(FolderPath, "Test");
-        string zipPath = Path.Combine(FolderPathTest, wantedAssetName);
+        //string FolderPathTest = Path.Combine(FolderPath, "Test");
+        string zipPath = Path.Combine(FolderPath, wantedAssetName);
         // Sprachstrings laden
         var langJsonUpdate = File.ReadAllText(LanguagePath);
         // Schritt 2: JSON deserialisieren
@@ -3312,7 +3328,7 @@ public class CPHInline
             using (var client = new HttpClient())
             {
                 client.DefaultRequestHeaders.Add("User-Agent", "UpdateChecker");
-                var response = await client.GetStringAsync($"https://api.github.com/repos/stefand571/Category_Switcher/releases/latest");
+                var response = await client.GetStringAsync($"https://api.github.com/repos/stevo-ko/Category_Switcher/releases/latest");
                 var json = JObject.Parse(response);
                 var assets = json["assets"];
                 if (assets == null || !assets.HasValues)
@@ -3329,8 +3345,8 @@ public class CPHInline
                 }
 
                 var assetUrl = asset["browser_download_url"]?.ToString();
-                if (!Directory.Exists(FolderPathTest))
-                    Directory.CreateDirectory(FolderPathTest);
+                if (!Directory.Exists(FolderPath))
+                    Directory.CreateDirectory(FolderPath);
                 // Download
                 using (var responseMsg = await client.GetAsync(assetUrl, HttpCompletionOption.ResponseHeadersRead))
                 {
@@ -3387,16 +3403,34 @@ public class CPHInline
                         if (_cancelDownload)
                             break;
                         currentEntry++;
-                        var destPath = Path.Combine(FolderPathTest, entry.FullName);
+                        var destPath = Path.Combine(FolderPath, entry.FullName);
                         var dir = Path.GetDirectoryName(destPath);
                         if (!Directory.Exists(dir))
                             Directory.CreateDirectory(dir);
                         if (!string.IsNullOrEmpty(entry.Name))
                         {
-                            using (var entryStream = entry.Open())
-                            using (var fileStream = new FileStream(destPath, FileMode.Create, FileAccess.Write))
+                            try
                             {
-                                await entryStream.CopyToAsync(fileStream);
+                                using (var entryStream = entry.Open())
+                                using (var fileStream = new FileStream(destPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
+                                {
+                                    await entryStream.CopyToAsync(fileStream);
+                                }
+                            }
+                            catch (IOException ioEx)
+                            {
+                                // Falls Datei gesperrt ist und PNG/ICO: überspringen
+                                if (destPath.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                                    destPath.EndsWith(".ico", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    // optional loggen
+                                    Debug.WriteLine($"Übersprungen: {destPath} ({ioEx.Message})");
+                                    continue;
+                                }
+                                else
+                                {
+                                    throw; // andere Dateien sollen den Fehler normal werfen
+                                }
                             }
                         }
 
@@ -3422,8 +3456,8 @@ public class CPHInline
                     });
                     // Alle geöffneten Streams vorher schließen
                     // Teilweise entpackte Dateien löschen
-                    if (Directory.Exists(FolderPathTest))
-                        Directory.Delete(FolderPathTest, true);
+                    if (Directory.Exists(FolderPath))
+                        Directory.Delete(FolderPath, true);
                     if (File.Exists(zipPath))
                         File.Delete(zipPath);
                     // Methode sauber verlassen
@@ -3562,6 +3596,8 @@ public class CPHInline
     {
         public bool ProgramUpdate { get; set; }
         public bool SettingsUpdate { get; set; }
+        public string CurrentProgramVersion { get; set; }
+        public string CurrentSettingsVersion { get; set; }
         public string RemoteProgramVersion { get; set; }
         public string RemoteSettingsVersion { get; set; }
         public string Changelog { get; set; }

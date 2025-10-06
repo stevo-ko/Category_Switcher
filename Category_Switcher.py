@@ -122,7 +122,10 @@ default_config = {
             "ThirdParty",
             "Bridge",
             "Win",
-            "EGS"
+            "EGS",
+            "WindowsNoEditor",
+            "WindowsNoEditorNoDrivers",
+            "WindowsNoDrivers"
         ]
     }, 
     "options": {
@@ -1740,6 +1743,9 @@ def main_logic():
 
                 if game_folder == "Mass Effect Ultimate Edition":
                     game_folder = "Mass Effect"
+
+                if game_folder == "5K":
+                    game_folder = "SCP: 5K"
 
                 ##if game_folder == "MarblesOnStream":
                   ##  game_folder = "Marbles On Stream"
