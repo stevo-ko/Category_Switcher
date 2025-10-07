@@ -153,7 +153,6 @@ public class CPHInline
                         {
                             
                             var ChangelogBorder = (Border)currentWindow.FindName("Changelog");
-
                             ChangelogBorder.Visibility = Visibility.Visible;
                             var changelogBox = (RichTextBox)currentWindow.FindName("ChangelogMarkdown");
                             string markdown = NormalizeNestedDashLists(_lastUpdateResult.Changelog);
@@ -163,7 +162,7 @@ public class CPHInline
                             ((Button)currentWindow.FindName("btnUpdate")).Visibility = Visibility.Visible;
 
                         }
-                    ((Button)currentWindow.FindName("btnBackUpdate")).Click += BtnBack_Click;
+                    ((Button)currentWindow.FindName("btnBackUpdate")).Visibility = Visibility.Collapsed;
                     //btnCheckUpdate_Click(this, new RoutedEventArgs());
                     }
                     else
@@ -3548,6 +3547,7 @@ public class CPHInline
         ((TextBlock)window.FindName("UpdateVersionProgram")).Visibility = Visibility.Collapsed;
         ((TextBlock)window.FindName("ArrowProgram")).Visibility = Visibility.Collapsed;
         ((TextBlock)window.FindName("ArrowSettings")).Visibility = Visibility.Collapsed;
+        ((Border)window.FindName("NoUpdate_Available")).Visibility = Visibility.Collapsed; 
         // Changelog zurücksetzen
         var changelogBorder = (Border)window.FindName("Changelog");
         if (changelogBorder != null)
@@ -3797,7 +3797,7 @@ public class CPHInline
             {
                 result.Changelog = "Kein Changelog für die Sprache gefunden.";
             }
-            
+
             if (_checkUpdateInvokedByButton)
             {
                 // --- Program Update ---
@@ -3837,6 +3837,10 @@ public class CPHInline
                     markdown = NormalizeMarkdown(markdown);
                     var emojiMap = BuildGitHubEmojiUrlMap();
                     SetMarkdownToRichTextBoxRich(changelogBox, markdown, emojiMap);
+                }
+                else
+                {
+                    ((Border)window.FindName("NoUpdate_Available")).Visibility = Visibility.Visible;                    
                 }
             }
             else
