@@ -57,6 +57,8 @@ public class CPHInline
     private static string FolderPath;
     private static string configPath;
     private static string filePath;
+
+    private static string tempPath;
     private static string LanguagePath;
     private static string settingsPath;
     private static string messagesPath;
@@ -3204,7 +3206,7 @@ public class CPHInline
     {
         _checkUpdateInvokedByButton = true;
         ResetUpdateOverlay();
-        ScanCategorySwitcherAsync();
+        //ScanCategorySwitcherAsync();
         CheckUpdate();
         LoadingIcons();
         
@@ -3238,7 +3240,7 @@ public class CPHInline
 
     private async void btnUpdate_Click(object sender, RoutedEventArgs e)
     {
-        
+        await ScanCategorySwitcherAsync();
         Window w = GetWindowFromSender(sender);
         var cancelButton = (Button)w.FindName("btnCancelDownload");
 
@@ -3307,11 +3309,13 @@ public class CPHInline
     /// 
     public async Task DownloadUpdateAsync(string wantedAssetName)
     {
-        
+
         if (_categorySwitcherPids != null && _categorySwitcherPids.Any())
         {
+            MessageBox.Show($"Gefunden: {_categorySwitcherPids.Count} Category_Switcher Prozesse.");
             foreach (var pid in _categorySwitcherPids.ToList())
             {
+                
                 try
                 {
                     var proc = Process.GetProcessById(pid);
@@ -3466,7 +3470,9 @@ public class CPHInline
                         if (_cancelDownload)
                             break;
                         currentEntry++;
-                        var destPath = Path.Combine(FolderPath, entry.FullName);
+
+                        tempPath = Path.Combine(FolderPath, "Temp");
+                        var destPath = Path.Combine(tempPath, entry.FullName);
                         var dir = Path.GetDirectoryName(destPath);
                         if (!Directory.Exists(dir))
                             Directory.CreateDirectory(dir);
@@ -3519,14 +3525,91 @@ public class CPHInline
                     });
                     // Alle geöffneten Streams vorher schließen
                     // Teilweise entpackte Dateien löschen
-                    if (Directory.Exists(FolderPath))
-                        Directory.Delete(FolderPath, true);
+                    if (Directory.Exists(tempPath))
+                        Directory.Delete(tempPath, true);
                     if (File.Exists(zipPath))
                         File.Delete(zipPath);
 
                     // Methode sauber verlassen
                     return;
                 }
+
+                // Dateien von Temp nach FolderPath verschieben
+                try
+                {
+                    string tempPath = Path.Combine(FolderPath, "Temp");
+                    if (Directory.Exists(tempPath))
+                    {
+                        var allFiles = Directory.GetFiles(tempPath, "*", SearchOption.AllDirectories);
+                        var failedFiles = new List<string>();
+
+                        foreach (var sourceFile in allFiles)
+                        {
+                            try
+                            {
+                                // Relativen Pfad ermitteln
+                                string tempPathWithSlash = tempPath.EndsWith("\\") ? tempPath : tempPath + "\\";
+                                string relativePath = sourceFile.Substring(tempPathWithSlash.Length);
+                                string targetFile = Path.Combine(FolderPath, relativePath);
+
+                                // Zielverzeichnis erstellen falls nötig
+                                string targetDir = Path.GetDirectoryName(targetFile);
+                                if (!Directory.Exists(targetDir))
+                                    Directory.CreateDirectory(targetDir);
+
+                                // Datei verschieben (überschreiben)
+                                if (File.Exists(targetFile))
+                                    File.Delete(targetFile);
+                                
+                                File.Move(sourceFile, targetFile);
+                            }
+                            catch (Exception ex)
+                            {
+                                // PNG und ICO Dateien bei Fehler ignorieren
+                                if (sourceFile.EndsWith(".png", StringComparison.OrdinalIgnoreCase) ||
+                                    sourceFile.EndsWith(".ico", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    continue;
+                                }
+                                failedFiles.Add($"{Path.GetFileName(sourceFile)}: {ex.Message}");
+                            }
+                        }
+
+                        // Fehler anzeigen falls welche aufgetreten sind
+                        if (failedFiles.Count > 0)
+                        {
+                            string errorMessage = "Following files could not be moved:\n" +
+                                                string.Join("\n", failedFiles);
+
+                            await window.Dispatcher.InvokeAsync(() =>
+                            {
+                                MessageBox.Show(errorMessage, "Error when Moving",
+                                              MessageBoxButton.OK, MessageBoxImage.Warning);
+                            });
+                        }
+                        else
+                        {
+                            // Temp-Ordner löschen
+                            try
+                            {
+                                Directory.Delete(tempPath, true);
+                            }
+                            catch { /* Ignorieren */ }
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    await window.Dispatcher.InvokeAsync(() =>
+                    {
+                        MessageBox.Show($"Error moving files:\n{ex.Message}", 
+                                      "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    });
+                }
+
+                // ZIP-Datei löschen
+                if (File.Exists(zipPath))
+                    File.Delete(zipPath);
 
                 // Fertig
                 ProgressBarBorder.Background = new LinearGradientBrush(Colors.Green, Colors.DarkGreen, 0);
