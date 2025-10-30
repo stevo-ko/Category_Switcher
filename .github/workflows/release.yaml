@@ -84,6 +84,7 @@ jobs:
           Remove-Item -Recurse -Force $tempDir
 
       # 5️⃣ Changelog für aktuellen Tag auslesen (DE + EN)
+      # 5️⃣ Changelog für aktuellen Tag auslesen (DE + EN)
       - name: Extract changelog for current tag
         id: changelog
         shell: pwsh
@@ -98,15 +99,17 @@ jobs:
           $insideBlock = $false
 
           foreach ($line in $lines) {
-              # Start eines Blocks für genau diesen Tag (DE oder EN)
+              # Start: Nur für den exakten Tag (DE oder EN)
               if ($line -match "^\#\#.*\*\*$tag(\s*\((DE|EN)\))?\*\*") {
                   $insideBlock = $true
                   Write-Host "Found start of block: $line"
               }
-              # Stop, wenn ein anderer Tag beginnt (z.B. v1.1.5, v1.0-Sv1.0, etc.)
-              elseif ($line -match "^\#\#.*\*\*v\d+\.\d+(\.\d+)?(-Sv\d+\.\d+)?(\s*\(DE|EN\))?\*\*" -and ($line -notmatch "\*\*$tag")) {
-                  if ($insideBlock) { Write-Host "End of block reached at line: $line" }
-                  $insideBlock = $false
+              # Stop: Sobald ein anderer Tag beginnt (egal welcher, aber nicht dieser)
+              elseif ($line -match "^\#\#.*\*\*v.*\*\*" -and ($line -notmatch "\*\*$tag(\s*\((DE|EN)\))?\*\*")) {
+                  if ($insideBlock) { 
+                      Write-Host "End of block reached at line: $line"
+                      break
+                  }
               }
 
               if ($insideBlock) { 
@@ -138,6 +141,7 @@ jobs:
           Write-Output "changelog<<EOF" >> $env:GITHUB_OUTPUT
           Write-Output "$changelog" >> $env:GITHUB_OUTPUT
           Write-Output "EOF" >> $env:GITHUB_OUTPUT
+
 
       # 6️⃣ GitHub Release erstellen
       - name: Create GitHub Release
