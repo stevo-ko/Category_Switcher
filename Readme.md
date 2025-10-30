@@ -25,6 +25,7 @@
 - :speech_balloon: **Just Chatting**: If the programm closes the category will auto change back to Just Chatting.
 - :file_cabinet: **Local Database**: Matched categories are saved to a local database, to prevent calling Twitch API everytime.
 - :globe_with_meridians: **Plattforms**: Twitch and Kick(experimental) are supported at the moment.
+- <img src="https://playnite.link/applogo.png" alt="Playnite" width="20" height="20"> **Playnite Integration:** Integration is made possible with the Addon [Running Game To Json](https://playnite.link/addons.html#7ad03f78-50f9-40d5-a7a3-cac5776e5482). More info in the Install Instructions below.
 
 :pencil: **Info**: Detection is based on the folder name in the path of the opened program.
 
@@ -40,8 +41,8 @@
 
 | File | Description | Link |
 |------|-------------|------|
-| Exe File | The exe is just the repacked Python file with PyInstaller. <br>Sadly, this approach will never be fully unflagged. | [View on VirusTotal](https://www.virustotal.com/gui/file/14d24d1d0c131a397f6b2b08cea82bbf3d0709765fe7c6e8a5c27baf9cecdef0/detection) |
-| Python Source | Original Python source code. | [View on VirusTotal](https://www.virustotal.com/gui/file/756c7dd59ca302b7436616b2ffcfb689541684d3fad54f08469f75189a0c853f?nocache=1) |
+| Exe File | The exe is just the repacked Python file with PyInstaller. <br>Sadly, this approach will never be fully unflagged. | [View on VirusTotal](https://www.virustotal.com/gui/file/a9ab55b027f11090ca2620af13858f031a2f41ea7dcae5e7ed6a3aa8debbdf72) |
+| Python Source | Original Python source code. | [View on VirusTotal](https://www.virustotal.com/gui/file/ae0390bd8cc30ed101fe879660300f31e9357d8bbb59bd586fd7cf043c3eca68) |
 
 
 <details>
@@ -83,7 +84,17 @@
 
 - If there is something wrong check the FAQ down below, writen an Issue here or contact me on the Streamer.bot Server in the thread.
 
+<details>
+<summary><h2><strong><img src="https://playnite.link/applogo.png" alt="Playnite" width="32" height="32"> Playnite Install Instructions</strong></h2></summary>
 
+- Download and Install Playnite from [Playnite.link](https://playnite.link/download)
+- Open Playnite and go to **Add-ons → Extensions → Generic** and install the **Running Game To Json** Addon.
+- You can find the Addon also [here](https://playnite.link/addons.html#7ad03f78-50f9-40d5-a7a3-cac5776e5482)
+- You can also install the Addon with that link:  
+  `playnite://playnite/installaddon/7ad03f78-50f9-40d5-a7a3-cac5776e5482`
+- After installing you just need to enable Playnite in the Settings of the Category Switcher and you are good to go.
+
+</details>
 </details>
 
 ---
@@ -125,13 +136,19 @@
 
 <h2>Fertig ✅</h2>  
 
----
-
 - Falls etwas nicht funktioniert, schau dir die **FAQ** unten an, erstelle ein Issue hier oder kontaktiere mich auf dem **Streamer.bot Server** im Thread.  
  
+<details>
+<summary><h2><strong><img src="https://playnite.link/applogo.png" alt="Playnite" width="32" height="32"> Playnite Installationsanleitung</strong></h2></summary>
 
+- Lade **Playnite** von [Playnite.link](https://playnite.link/download) herunter und installiere es.  
+- Öffne **Playnite** und gehe zu **Add-ons → Erweiterungen → Allgemein**, und installiere das Add-on **Running Game To Json**.  
+- Du findest das Add-on auch [hier](https://playnite.link/addons.html#7ad03f78-50f9-40d5-a7a3-cac5776e5482).  
+- Alternativ kannst du das Add-on auch direkt über diesen Link installieren:  
+  `playnite://playnite/installaddon/7ad03f78-50f9-40d5-a7a3-cac5776e5482`  
+- Nach der Installation musst du nur noch **Playnite** in den **Einstellungen des Category Switchers** aktivieren – und schon bist du startklar.
 
-
+</details>
 </details>
 
 ---
