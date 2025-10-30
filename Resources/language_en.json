@@ -23,7 +23,8 @@
     "Save_Fail": "Error while saving settings: ",
     "Back": "Back to Settings",
     "Settingmenu_Version": "Settingsmenu Version",
-    "Program_Version": "Program Version" 
+    "Program_Version": "Program Version",
+    "Requirements": "Requirements"
   },
 
   "Language":
@@ -144,6 +145,14 @@
     "Description": "Defines how long to wait after closing programming-related applications before switching to the 'Just Chatting' category.\nThis delay only applies when the current category is 'Software & Development'."
   },
 
+  "DelayPlaynite":
+  {
+    "Label": "Playnite Delay",
+    "Current": "Current Delay: ",
+    "Default": "Default Value 0 Seconds",
+    "Description": "Defines how long to wait after closing a game inside Playnite before switching to the 'Just Chatting' category.\nThis delay only applies when Playnite is enabled and open."
+  },
+
   "Twitch_Info": 
   {
     "Description": "This Section shows you the ClientID and OAuthToken that Category Switcher received from Streamer.bot",
@@ -203,19 +212,19 @@
   "Update_Message": 
   {
     "Label": "Changed Message in Chat",
-    "Description": "Message that displays when the category was changed. Enable to modify the message."
+    "Description": "Message that displays when the category was changed.\nEnable to modify the message."
   },
 
   "Failed_Message": 
   {
     "Label": "Failed Message in Chat",
-    "Description": "Message that displays when the category change failed. Enable to modify the message."
+    "Description": "Message that displays when the category change failed.\nEnable to modify the message."
   },
 
   "Not_in_DB_Message": 
   {
     "Label": "Not in local DB Message",
-    "Description": "Message that displays when Local only Mode is active and a game is not found in the local database. Enable to modify the message."
+    "Description": "Message that displays when Local only Mode is active and a game is not found in the local database.\nEnable to modify the message."
   },
 
   "Censor_Mode": 
@@ -231,9 +240,19 @@
     "Description": "Enables the Kick Integration, so the category will also change on Kick."
   },
 
+  "Playnite": 
+  {
+  "Label": "Enable Playnite Integration",
+  "Experimental": "This integration is still experimental and may contain errors or false detections!",
+  "Description": "Allows games to be detected when launched through Playnite.\nEmulator games are also supported!",
+  "Requirements": "Requires the Playnite extension 'RunningGameToJson' to be installed."
+  },
+
+
   "Update_Overlay":
   {
     "Label": "Update Menu",
+    "Updatecheck_Action": "Automatically check for updates",
     "Check_Update": "Check for Updates",
     "DownloadBtn": "Download Update",
     "GithubBtn": "Download from Github",
@@ -251,6 +270,7 @@
     "Unpacking_Abort": "Unpacking the update was aborted.",
     "Update_Error": "Update Error:",
     "Update_Success": "Update completed successfully!",
+    "Update_Import": "Do not forget to Import the Update.stevo file!",
     "Actual": "Actual",
     "Latest": "Latest"
   },
