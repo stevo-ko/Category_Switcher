@@ -29,6 +29,7 @@ jobs:
 
       # 3️⃣ Category_Switcher.zip erstellen
       - name: Pack Category_Switcher.zip
+        id: pack   # <--- WICHTIG: ID hinzufügen!
         shell: pwsh
         run: |
           function Copy-Content($items, $target) {
@@ -39,11 +40,29 @@ jobs:
                   }
               }
           }
+
           $tempDir = "ReleasePackage"
           New-Item -ItemType Directory -Path $tempDir | Out-Null
+
+          # Dateien & Ordner kopieren
           Copy-Content @("Release EXE\_internal", "Release EXE\Category_Switcher.exe", "Resources") $tempDir
           Copy-Content @("Version.json","settings.xaml","Changelog.md","Category_Switcher.stevo","LICENSE") $tempDir
+
+          # Prüfen, ob Update.stevo existiert
+          $updateFile = "Update.stevo"
+          if (Test-Path $updateFile) {
+              Write-Host "✅ Update.stevo gefunden – wird in das Archiv aufgenommen."
+              Copy-Item -Force $updateFile (Join-Path $tempDir "Update.stevo")
+              # Variable setzen, damit später als extra Datei hochgeladen wird
+              "update_file=$updateFile" >> $env:GITHUB_OUTPUT
+          } else {
+              Write-Host "ℹ️ Keine Update.stevo gefunden."
+          }
+
+          # ZIP erstellen
           Compress-Archive -Path "$tempDir\*" -DestinationPath "Category_Switcher.zip" -Force
+
+          # Temporären Ordner löschen
           Remove-Item -Recurse -Force $tempDir
 
       # 4️⃣ Category_Switcher Source.zip erstellen
@@ -130,5 +149,6 @@ jobs:
           files: |
             Category_Switcher.zip
             Category_Switcher Source.zip
+            ${{ steps.pack.outputs.update_file }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
