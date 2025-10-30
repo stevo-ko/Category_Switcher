@@ -29,6 +29,7 @@ import math
 import io
 import contextlib
 import asyncio
+import shutil
 
 default_config = {
     "twitch": {
@@ -141,7 +142,9 @@ default_config = {
         "censor_mode": False,
         "delay_programming": 60,
         "delay_general": 0,
-        "kick_enabled": False
+        "delay_playnite": 0,
+        "kick_enabled": False,
+        "playnite_enabled": False
     }
 }
 
@@ -156,7 +159,6 @@ else:
 settingspath = programm_ordner + "\\"
 config_path = os.path.join(programm_ordner, "config.json")
 
-##print(settingspath)
 
 # Funktion zum Speichern der Standardkonfiguration
 # Function to create default config
@@ -167,6 +169,7 @@ def save_default_config():
 
 
 def merge_config(default, current):
+
     exclude_paths = ["E:\\Spiele", "E:\\SteamLibrary"]
     result = {}
 
@@ -209,7 +212,73 @@ def remove_from_config():
         with open("config.json", "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False, sort_keys=False)
 
+def restore_critical_files():
+    backup_folder = os.path.join(programm_ordner, "backups")
+    critical_files = ["config.json", "game_data.json", "Version.json"]
+    restored = False
+    if not os.path.isdir(backup_folder):
+        return False
 
+    for file in critical_files:
+        # Alle Backups dieses Typs finden
+        
+        backups = sorted(
+            [f for f in os.listdir(backup_folder) if f.startswith(file + "_") and f.endswith(".bak")],
+            key=lambda x: os.path.getmtime(os.path.join(backup_folder, x)),
+            reverse=True  # neueste zuerst
+        )
+
+        if not backups:
+            #print(f"Kein Backup gefunden für: {file}")
+            continue
+
+        # Neueste Datei auswählen
+        latest_backup = os.path.join(backup_folder, backups[0])
+
+        # Validität prüfen
+        try:
+            with open(latest_backup, "r", encoding="utf-8") as f:
+                json.load(f)
+        except json.JSONDecodeError:
+            #print(f"Ungültiges Backup (kein valides JSON): {latest_backup}")
+            continue
+
+        # Wiederherstellen
+        destination_file = os.path.join(programm_ordner, file)
+        shutil.copy2(latest_backup, destination_file)
+        #print(f"Wiederhergestellt: {file} ← {latest_backup}")
+        restored = True
+    return restored
+
+
+def check_file_validity():
+    critical_files = ["config.json", "game_data.json", "Version.json"]
+    for file in critical_files:
+        file_path = os.path.join(programm_ordner, file)
+        if not os.path.exists(file_path):
+            return False
+        try:
+            with open(file_path, "r", encoding="utf-8") as f:
+                json.load(f)
+        except json.JSONDecodeError:
+            return False
+    return True
+
+if not check_file_validity():
+    restore_critical_files()
+
+
+update_from_version_below_2 = False
+
+def update_from_old_version(current):
+    global update_from_version_below_2
+
+    if "kick" not in current:
+        update_from_version_below_2 = True
+        
+    else:
+        update_from_version_below_2 = False    
+    return update_from_version_below_2
 
 try:
     with open("config.json", "r", encoding="utf-8") as file:
@@ -222,13 +291,46 @@ except (FileNotFoundError, json.JSONDecodeError):
 
 else:
     # Mische fehlende Keys aus default_config ein
+    update_from_old_version(config)
     updated_config = merge_config(default_config, config)
     with open("config.json", "w", encoding="utf-8") as f:
         json.dump(updated_config, f, indent=4)
     config = updated_config
     remove_from_config()
     
+def backup_critical_files():
+    # Backup der wichtigen Dateien
+    # Backup important files
+    critical_files = ["config.json", "game_data.json", "Version.json"]
+    backup_folder = os.path.join(programm_ordner, "backups")
+    os.makedirs(backup_folder, exist_ok=True)
 
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+
+    for file in critical_files:
+        source_file = os.path.join(programm_ordner, file)
+        destination_file = os.path.join(backup_folder, f"{file}_{timestamp}.bak")
+
+        if os.path.exists(source_file):
+            shutil.copy2(source_file, destination_file)
+            print(f"Backup erstellt: {destination_file}")
+
+            # Alte Backups löschen, wenn mehr als 10 vorhanden sind 
+            backups = sorted(
+                [f for f in os.listdir(backup_folder) if f.startswith(file + "_")],
+                key=lambda x: os.path.getmtime(os.path.join(backup_folder, x))
+            )
+
+            # Falls mehr als 10, die ältesten löschen
+            while len(backups) > 10:
+                oldest = backups.pop(0)
+                os.remove(os.path.join(backup_folder, oldest))
+                ##print(f"Altes Backup gelöscht: {oldest}")
+        #else:
+            #print(f"Datei nicht gefunden: {source_file}")
+           
+backup_critical_files()
+        
 
 show_console = bool(config["options"]["show_console"])
 setting_language = config["options"]["language"]
@@ -262,7 +364,7 @@ else:
 ## Prüfe ob module importiert werden können wenn nicht installiere sie
 ## Check if modules can be imported otherwise install them
 
-modules = ["rapidfuzz", "requests", "psutil"]
+modules = ["rapidfuzz", "requests", "psutil", "pydantic", "PyQt5", "watchdog"]
 
 for module in modules:
     try:
@@ -283,6 +385,9 @@ from pydantic import BaseModel
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QMessageBox, QLabel
 from PyQt5.QtCore import QTimer, QMetaObject
 from PyQt5.QtGui import QFont, QColor, QPalette, QIcon
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+
 
 def get_resource_path_old(relative_path):
     """ Holt den absoluten Pfad zu Ressourcen, egal ob als .py oder .exe ausgeführt """
@@ -534,6 +639,113 @@ def terminate_current_instance():
         print(f"Die aktuelle Instanz (PID {current_pid}) wurde beendet.")
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         print("Fehler beim Beenden der aktuellen Instanz.")
+        
+        
+        
+latest_game_event = None
+game_started_event = threading.Event()
+Playnite_Game_Stopped = None
+observer = None
+watcher_started = False
+waiting_for_game = False
+game_set = False
+Playnite_Game_Retry = None
+Playnite_exit = None
+playnite_enabled = None
+game_stopped = None
+program_stopped = None
+playnite_running = None
+_last_check = 0
+_last_result = True
+
+# Pfad zur JSON
+##filepath = r"E:\Playnite portable\RunningGame.json"
+
+filepath = None
+# ----------------------------
+# Watchdog Handler
+# ----------------------------
+# class JsonHandler(FileSystemEventHandler):
+#     def on_modified(self, event):
+#         global latest_game_event, Playnite_Game_Stopped
+
+#         # Nur reagieren, wenn genau die RunningGame.json geändert wurde
+#         if os.path.normcase(event.src_path) == os.path.normcase(filepath):
+#             try:
+#                 with io.open(filepath, 'r', encoding='utf-8') as f:
+#                     data = json.load(f)
+#                 latest_game_event = data
+
+#                 # Wenn Spiel gestartet wurde → Event setzen
+#                 if data.get("Event") == "GameStarted":
+#                     game_started_event.set()
+
+#                 if data.get("Event") == "GameStopped":
+#                     game_started_event.clear()
+                    
+#                     Playnite_Game_Stopped = True
+
+#             except json.JSONDecodeError:
+#                 # Datei wird gerade von Playnite beschrieben → ignorieren
+#                 pass
+#             except Exception as e:
+#                 print(f"Fehler beim Lesen der JSON: {e}")
+
+class JsonHandler(FileSystemEventHandler):
+    last_run = 0
+
+    def on_modified(self, event):
+        global latest_game_event, Playnite_Game_Stopped
+
+        # Nur auf genau die RunningGame.json reagieren
+        if os.path.normcase(event.src_path) != os.path.normcase(filepath):
+            return
+        
+        try:
+            with io.open(filepath, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            latest_game_event = data
+
+            if data.get("Event") == "GameStarted":
+                game_started_event.set()
+
+            if data.get("Event") == "GameStopped":
+                game_started_event.clear()
+                Playnite_Game_Stopped = True
+
+        except json.JSONDecodeError:
+            pass
+        except Exception as e:
+            print(f"Fehler beim Lesen der JSON: {e}")
+
+
+
+# ----------------------------
+# Watchdog Start / Stop
+# ----------------------------
+def start_watcher():
+    global observer
+    if observer is not None and observer.is_alive():
+        ##print("Watcher läuft bereits.")
+        return
+
+    observer = Observer()
+    print(f"Observer-Typ: {type(observer).__name__}")
+    event_handler = JsonHandler()
+    directory = os.path.dirname(filepath)
+    observer.schedule(event_handler, path=directory, recursive=False)
+    observer.start()
+    ##print("Watcher gestartet.")
+
+def stop_watcher():
+    global observer
+    if observer is None:
+        return
+    observer.stop()
+    observer.join()
+    observer = None
+    ##print("Watcher gestoppt.")
+
 
 token = None
 CLIENT_ID = None
@@ -548,8 +760,9 @@ category_set_already = None
 previous_saved_games = None
 first_save = False
 game_folder = "Nothing"
-delay_programming = None
+delay_programming = 0
 delay_general = 0
+delay_playnite = 0
 message = False
 server = None
 kick_failed = False
@@ -573,15 +786,30 @@ known_exe_names = ["blender.exe","UnrealEditor.exe","Unity Hub.exe","Code.exe","
                     "curl.exe","wget.exe"
                     ]
    
-last_modified = None   
+last_modified = None  
+save_games_to_file = True
+unique_id = None
+seen_processes = None
+printed_closed = False
+
 def main_logic():
-    global token, CLIENT_ID, token_valid, category_set_already, language, previous_saved_games, first_save, game_folder, config_path, last_modified, delay_programming, delay_general, message, with_console, kick_token, kick_client_id, kick_client_secret, kick_enabled, kick_missing, kick_failed, known_exe_names
+    
+    global token, CLIENT_ID, token_valid, category_set_already, language, previous_saved_games, first_save, game_folder, config_path, last_modified, message, with_console, known_exe_names, settingspath, update_from_version_below_2, printed_closed
+    
+    ## delays
+    global delay_programming, delay_general, delay_playnite, game_stopped, program_stopped
+    
+    ## kick globals
+    global kick_token, kick_client_id, kick_client_secret, kick_enabled, kick_missing, kick_failed
+
+    ## Playnite globals
+    global _last_check, _last_result, Playnite_exit, Playnite_Game_Retry, playnite_enabled, save_games_to_file, observer, filepath, game_set, Playnite_Game_Stopped, watcher_started, waiting_for_game, game_started_event, latest_game_event, playnite_running 
     
 ##    print(config_path)
 ##    print(last_modified)
     ctypes.windll.kernel32.SetConsoleTitleW("Category Switcher")
     sys.argv[0] = ("Category Switcher")
-
+##    print(settingspath)
     # Config-Datei laden
     # load config file
     with open("config.json", "r", encoding="utf-8") as file:
@@ -627,7 +855,9 @@ def main_logic():
     width, height = map(int, boxart_size.split('x'))
     delay_programming = int(config["options"]["delay_programming"])*1000
     delay_general = int(config["options"]["delay_general"])*1000
+    delay_playnite = int(config["options"]["delay_playnite"])*1000
     kick_enabled = bool(config["options"]["kick_enabled"])
+    playnite_enabled = bool(config["options"]["playnite_enabled"])
     
     last_modified = os.path.getmtime(config_path)
     
@@ -636,9 +866,11 @@ def main_logic():
         global token
         global kick_token
         global kick_enabled
+        global playnite_enabled
         global language
         global delay_programming
         global delay_general
+        global delay_playnite
         global message
         nonlocal streamerbot_url
         nonlocal streamerbot_port
@@ -704,6 +936,7 @@ def main_logic():
         delay_programming = int(config["options"]["delay_programming"])*1000
         delay_general = int(config["options"]["delay_general"])*1000
         kick_enabled = bool(config["options"]["kick_enabled"])
+        playnite_enabled = bool(config["options"]["playnite_enabled"])
         setting_language = config["options"]["language"]
 
         german_variants = {"deutsch", "german", "de", "ger", "deu"}
@@ -817,6 +1050,44 @@ def main_logic():
             except (psutil.NoSuchProcess, psutil.AccessDenied):
                 continue
         return False
+    
+    
+
+    def is_playnite_running():
+        if not playnite_enabled:
+            return False
+        for proc in psutil.process_iter(['name']):
+            try:
+                name = proc.info['name']
+                if not name:
+                    continue
+                name_lower = name.lower()
+                if name_lower in ('playnite.desktopapp.exe', 'playnite.fullscreenapp.exe'):
+                    
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                
+                continue
+        
+        return False
+
+
+    def is_playnite_running_old(interval=3):
+        """
+        Prüft, ob Playnite läuft, aber nur alle `interval` Sekunden wirklich per psutil.
+        Dazwischen wird das letzte Ergebnis zurückgegeben (Cache).
+        """
+        global _last_check, _last_result
+        now = time.time()
+        if now - _last_check < interval:
+            return _last_result  # altes Ergebnis zurückgeben
+
+        _last_check = now
+        _last_result = any(
+            "playnite" in (p.info["name"] or "").lower()
+            for p in psutil.process_iter(["name"])
+        )
+        return _last_result
 
     def get_streamerbot_url():
 
@@ -912,6 +1183,7 @@ def main_logic():
                 if language == 0:
                     print(f"\n✅ Category '{category_name}' set successful!\n")
 ##                print(response.json())
+                return True
             else:
                 if language == 1:
                     print(f"❌ Kategorie senden fehlgeschlagen mit Error Meldung {response.status_code}")
@@ -935,9 +1207,12 @@ def main_logic():
                 print("❌ Verbindung zu Streamer.bot konnte nicht hergestellt werden. Stelle sicher das der HTTP Server gestartet ist")
             if language == 0:
                 print("❌ Could not connect to Streamer.bot. Make sure http server is running!")
+                
             if not show_console:
                 start_logging()
                 logging.error(f"Connection error: {e}")
+            return 
+            
         except requests.exceptions.InvalidURL as e:
             
             if not show_console:
@@ -1017,6 +1292,7 @@ def main_logic():
                     print("\n✅ Get Token erfolgreich ausgeführt!\n")
                 if language == 0:
                     print("\n✅ Get token successful!\n")
+                
             else:
                 if language == 1:
                     print(f"❌ Token erhalten nicht erfolgreich | Fehlercode {response.status_code}")
@@ -1043,6 +1319,7 @@ def main_logic():
             if not show_console:
                 start_logging()
                 logging.error(f"Connection error: {e}")
+            return None
         except requests.exceptions.InvalidURL as e:
             
             if not show_console:
@@ -1053,6 +1330,7 @@ def main_logic():
                 print("❌ Streamer.bot URL oder Port leer oder nicht gültig.")
             if language == 0:
                 print("❌ Streamer.bot URL or Port empty or not valid.")
+            return None
         except requests.exceptions.RequestException as e:
             
             if not show_console:
@@ -1066,8 +1344,8 @@ def main_logic():
             if not show_console:
                 start_logging()
                 logging.error(f"Request error: {e}")
-
-        return
+            return None
+        return token
     
     def save_token_to_config(token, CLIENT_ID):
         
@@ -1405,7 +1683,9 @@ def main_logic():
                 # Warten, bis der Token empfangen und gespeichert wird
                 time.sleep(2)
                 ##save_token_to_config(token, CLIENT_ID)
-
+                if token is None:
+                    return
+                
                 if language == 1:
                     print("✅ Token und CLIENT_ID erfolgreich gespeichert!\n")
                 if language == 0:
@@ -1440,6 +1720,10 @@ def main_logic():
                         print("Streamer.bot nicht gestartet!")
                     if language == 0:
                         print("Streamer.bot not running!")
+                        
+            if update_from_version_below_2:
+                get_access_token_action()
+                
                 
 
     # JSON-Daten werden hier gespeichert
@@ -1563,20 +1847,20 @@ def main_logic():
     kick_category_name = "Just Chatting"
     if is_streamerbot_running():
         if kick_enabled:
-            category_change(category_name, kick_category_name)
+            connection = category_change(category_name, kick_category_name)
         else:
-            category_change(category_name)
+            connection = category_change(category_name)
     obs_started = False
     streamerbot_started = False
     displayed_warning = False
     displayed_warning_category = False
-
-    print("-" * 90)
-    if language == 1:           
-        print("⌛ Warte auf Spiel Prozess 🎮".center(90))
-    if language == 0:
-        print("⌛ Wating for the game process 🎮".center(90))
-    print("-" * 90)
+    if token is not None and connection is not None:
+        print("-" * 90)
+        if language == 1:           
+            print("⌛ Warte auf Spiel Prozess 🎮".center(88))
+        if language == 0:
+            print("⌛ Wating for the game process 🎮".center(84))
+        print("-" * 90)
 
     while True:
        
@@ -1612,14 +1896,21 @@ def main_logic():
                 # Make sure process has an valid exe_path and is in allowed_paths
                 if not exe_path or name in excluded_names:
                     continue
-
+                
                 # Prüfen, ob der exe_path in allowed_paths ist
                 normalized_exe_path = os.path.normcase(os.path.normpath(exe_path))
                 normalized_allowed_paths = [os.path.normcase(os.path.normpath(path)) for path in allowed_paths]
+                name_lower = name.lower()
+                
+                skip_path_check = name_lower in (
+                    'playnite.desktopapp.exe',
+                    'playnite.fullscreenapp.exe'
+                )
 
-                if not any(normalized_exe_path.startswith(path) for path in normalized_allowed_paths):
-##                    print(f"Prozess {name} mit exe_path {exe_path} ist nicht in allowed_paths.")
-                    continue  # Wenn der exe_path nicht in allowed_paths liegt, überspringe diesen Prozess
+                if not skip_path_check:
+                    if not any(normalized_exe_path.startswith(path) for path in normalized_allowed_paths):
+##                        print(f"Prozess {name} mit exe_path {exe_path} ist nicht in allowed_paths.")
+                        continue  # Wenn der exe_path nicht in allowed_paths liegt, überspringe diesen Prozess
                 exe_lower = os.path.basename(exe_path).lower()
                 
                 #Überspringe verschiedene nicht gewollte Exe dateien
@@ -1654,7 +1945,13 @@ def main_logic():
                 
                 if "unins0" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
-                
+
+                if "wallpaper32" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue
+
+                if "wallpaper64" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue                
+
                 if "unity.licensing" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
                 
@@ -1703,6 +2000,95 @@ def main_logic():
                 if "vc_redist" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
                 
+                if "cefsharp.browsersubprocess" in exe_lower and exe_lower.endswith(".exe"):
+                    continue
+                
+                if "retroarch" in exe_lower and exe_lower.endswith(".exe"):
+                    continue
+                    if is_playnite_running() or game_set:
+                        continue
+
+                                    
+                if (("playnite.desktopapp" in exe_lower or "playnite.fullscreenapp" in exe_lower ) and exe_lower.endswith(".exe")):
+                    playnite_running = True
+                    if playnite_enabled:
+                        if not watcher_started:
+                            folder_path = os.path.dirname(exe_path)
+                            filepath = os.path.join(folder_path, "RunningGame.json")                        
+                            
+                            start_watcher()
+                            watcher_started = True
+                            game_started_event.clear()
+                            if language == 1:
+                                print(f"\n✅ Playnite erkannt: PID {pid} Path: {exe_path}\n")
+                            if language == 0:
+                                print(f"\n✅ Playnite detected: PID {pid} Path: {exe_path}\n")
+                                 
+                            print("-" * 90)
+                            if language == 1:           
+                                print("⌛ Warte auf GameStarted Event 🎮".center(82))
+                            if language == 0:
+                                print("⌛ Waiting on the GameStarted Event 🎮".center(80))
+                            print("-" * 90)
+                            waiting_for_game = True
+
+                        if waiting_for_game:                             
+                            while True:
+                                game_started_event.wait(timeout=1)
+                                # 1️⃣ Wenn Spiel gestartet wurde → weiter
+                                if game_started_event.is_set():
+                                    waiting_for_game = False
+                                    game_folder = latest_game_event['Name']
+                                    kick_game_folder = game_folder
+                                    exe_path = latest_game_event['Path']
+                                    game_set = True
+
+                                    if latest_game_event.get('Type') != "Emulator":
+                                        save_games_to_file = False
+
+                                    #print(f"🎮 Neuestes Spiel aus Playnite: {game_folder}")
+                                    break
+
+                                # 2️⃣ Wenn Playnite nicht mehr läuft → abbrechen
+                                if not is_playnite_running():
+                                    
+                                    waiting_for_game = False
+                                    game_set = False
+                                    Playnite_Game_Retry = True
+                                    Playnite_Game_Stopped = False
+                                    Playnite_exit = True
+                                    save_games_to_file = True
+                                    if watcher_started:
+                                        watcher_started = False
+                                        stop_watcher()
+                                    
+                                    break
+
+                            time.sleep(0.5)  # CPU-schonend
+                                                          
+                            if Playnite_exit:
+                                game_folder = "Playnite"
+                                continue    
+                            
+                        if game_set is not None:
+                            game_folder = latest_game_event['Name']
+                            kick_game_folder = game_folder
+                            exe_path = latest_game_event['Path']
+                            ##print(f"🎮 Spiel aus Playnite wird gesetzt: {game_folder}")
+                    else:
+                        continue
+                    
+                if playnite_running == True and waiting_for_game == False:
+                    if not is_playnite_running():
+                        game_set = False
+                        Playnite_Game_Retry = True
+                        Playnite_Game_Stopped = False
+                        Playnite_exit = True
+                        save_games_to_file = True
+                        if watcher_started:
+                            watcher_started = False
+                            stop_watcher()             
+                
                 if is_ue_or_known_exe_path(exe_path.lower()):
                     game_folder = "Software and game development"
                     kick_game_folder = "Software Development"
@@ -1710,6 +2096,7 @@ def main_logic():
                 else:    
                     # Gültigen Root-Ordner finden
                     # Find valid root folder
+                    
                     root_folder = get_valid_root_folder(exe_path, allowed_paths, excluded_folders)
 
     ##                if root_folder:
@@ -1721,11 +2108,17 @@ def main_logic():
 
                     # Spielname extrahieren (Ordner der .exe)
                     # Extrac gamename (Folder of .exe)
-                    
-                    game_folder = os.path.basename(root_folder)
-                    kick_game_folder = game_folder
+                    if not game_set:
+                        game_folder = os.path.basename(root_folder)
+                        kick_game_folder = game_folder
 
 ##                print(f" Debug output game_folder: {game_folder}")
+
+                # Spezial Fälle für Emulator Games zum matchen
+                
+                if "digimon world 2003" in game_folder.lower():
+                    game_folder = "Digimon World 3"
+                    kick_game_folder = "Digimon World 3"
 
                 # Spezial Fälle um Twitch Kategorie richtig zu matchen            
                 # Edge cases setting game_folder forceful to get twitch match            
@@ -1749,6 +2142,8 @@ def main_logic():
 
                 ##if game_folder == "MarblesOnStream":
                   ##  game_folder = "Marbles On Stream"
+
+
 
                 if "no mans sky" in game_folder.lower():
                     game_folder = "No Man's Sky"
@@ -1795,6 +2190,25 @@ def main_logic():
                     
                 if game_folder == "the witcher 2":
                     game_folder = "The Witcher 2: Assassins of Kings"
+                    
+                if "retroarch" in game_folder.lower():
+                    game_folder = "Retro"
+                    kick_game_folder = "Retro Games"
+
+                # Entfernt alle gängigen Test-Endungen wie Demo, Alpha, Beta, Test (mit Klammern, Bindestrichen, Version etc.)
+                # Liste möglicher Suffixe
+                suffixes = ("demo", "alpha", "beta", "test")
+
+                # Nur ersetzen, wenn einer dieser Begriffe im Namen vorkommt
+                if any(suffix in game_folder.lower() for suffix in suffixes):
+                    game_folder = re.sub(
+                        r'[\s\-_()]*\b(?:demo|alpha|beta|test)(?:[\s\-_()]*version|\s*v?\d+)?[\s\-_()]*$',
+                        '',
+                        game_folder,
+                        flags=re.IGNORECASE
+                    ).strip()
+                    kick_game_folder = game_folder
+
                                         
                 # Eindeutige Kombination aus PID und exe_path (damit `current_seen` funktioniert)
                 # Unique combination of PID and exe_path (so current_seen works)
@@ -1807,11 +2221,13 @@ def main_logic():
                 saved_games = load_saved_games()
                 game_data = next((game for game in saved_games if game["Game"] == game_folder), None)
                 
-                if game_data and kick_enabled and unique_id not in seen_processes:
+                if game_data and kick_enabled and (unique_id not in seen_processes or Playnite_Game_Retry):
                     kick_id = str(game_data.get("Kick Category ID") or "").strip()
                     kick_name = str(game_data.get("Kick Category Name") or "").strip()
 
-                    kick_missing = (kick_id == "" or kick_name == "")
+                    kick_missing = (kick_name == "")
+                    Playnite_Game_Retry = False
+                    
                 # Spiel gilt nur als in DB vorhanden, wenn game_data existiert und Kick nicht fehlt
                 if game_data and game_folder not in displayed_games and not kick_missing:
 
@@ -1858,7 +2274,7 @@ def main_logic():
                     
                 
                 elif not game_data or kick_missing:
-                     
+
                     if not displayed_warning:
                         if language == 1:
                             print(f"\n✅ Gestartet: PID {pid}, Spiel: {game_folder}, Path: {path_norm}\n")
@@ -1961,14 +2377,25 @@ def main_logic():
                                         "Twitch Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/2058570718_IGDB-285x380.jpg"
                                     }
                                 elif game_folder == "Spyro The Dragon":
-                                    category['id'] = "1885901697"
+                                    category['id'] = "1608308954"
                                     game_data = {
                                         "Game": game_folder,
                                         "Path": os.path.normpath(exe_path),  
                                         "Twitch Category Name": best_match["name"],
-                                        "Twitch Category ID": "1885901697",
+                                        "Twitch Category ID": category['id'],
                                         "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
                                     }
+
+                                elif game_folder == "Dispatch":
+                                    category['id'] = "602959317"
+                                    game_data = {
+                                        "Game": game_folder,
+                                        "Path": os.path.normpath(exe_path),  
+                                        "Twitch Category Name": best_match["name"],
+                                        "Twitch Category ID": category['id'],
+                                        "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
+                                    }
+
                                 elif game_folder == "Software and game development":
                                     game_data = {
                                         "Game": game_folder,
@@ -2006,7 +2433,7 @@ def main_logic():
                                                 logging.info(f"⚠️ Keine Kick-Kategorie für '{kick_game_folder}' gefunden.")
                                                 logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
                                         if language == 0:
-                                            print(f"⚠️ No Kick Category found for '{game_folder}'.")
+                                            print(f"⚠️ No Kick Category found for '{kick_game_folder}'.")
                                             if not show_console:
                                                 start_logging()
                                                 logging.info(f"⚠️ No Kick Category found for '{kick_game_folder}'.")
@@ -2134,63 +2561,58 @@ def main_logic():
                             
             except (psutil.AccessDenied, psutil.NoSuchProcess):
                 continue
-        time.sleep(1)        
+        time.sleep(1)       
+         
         delayed_reset_called = {}  # Wird verwendet, um Verzögerungen pro Ordner zu verfolgen
 
-        def delayed_category_reset(game_folder, displayed_games, seen_processes, current_seen):
-            global delay_programming
-            global known_exe_names
-
+        def delayed_category_reset(displayed_games, seen_processes, current_seen):
+            global delay_programming, game_folder, program_stopped
+            
             delay_ms = delay_programming
 
             def reset():
-                global category_set_already
-               ## print("Reset wird ausgeführt")
-               ## print(game_folder)
-               ## print(displayed_games)
+                global category_set_already , game_folder, program_stopped
 
-                # Überprüfen, ob der Ordner noch offen ist
-                ##exe_list = ["UnrealEditor.exe", "Blender.exe", "AnotherTool.exe"]
-                exe_list = known_exe_names
+                reset = False
+                current_program = game_folder
+                stopped_program = program_stopped
+
+                if current_program == stopped_program:
+                    reset = False
                 
-                folder_open = False
-                try:
-                    for proc in psutil.process_iter(["pid", "name", "exe"]):
-                        exe_path = proc.info["exe"]
-                        if exe_path:
-                            # prüfe, ob eine der exe-Namen in exe_path vorkommt (case-insensitive)
-                            if any(exe_name.lower() in exe_path.lower() for exe_name in exe_list):
-                                folder_open = True
-                                break
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    pass
-                if folder_open:
-                    ##print(f"Ordner {game_folder} ist noch geöffnet. Kein Reset.")
-                    return  # Ordner läuft noch, also keinen Reset durchführen
-                displayed_warning = False
-                displayed_warning_category = False
+                if current_program != None and current_program != stopped_program:
+                    reset = False 
+                
+                if game_folder == None:
+                    reset = True           
                 
                 # Wenn der Ordner nicht mehr läuft, Reset durchführen
-                if game_folder in displayed_games:
-                    displayed_games.remove(game_folder)
-                    category_name = "Just Chatting"
-                    kick_category_name = "Just Chatting"
-                    failed = False                    
-                    if is_streamerbot_running():
-                        if category_set_already != category_name:
-                            if kick_enabled:
-                                category_change(category_name, kick_category_name)
-                            else:
-                                category_change(category_name)
-                            if message:
+                if reset:                   
+                    if stopped_program in displayed_games:
+                        displayed_games.remove(stopped_program)
+                        category_name = "Just Chatting"
+                        kick_category_name = "Just Chatting"
+                        failed = False                    
+                        if is_streamerbot_running():
+                            if category_set_already != category_name:
                                 if kick_enabled:
-                                    send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                    category_change(category_name, kick_category_name)
                                 else:
-                                    send_message(game_folder, category_name)
-                    category_set_already = category_name
-
+                                    category_change(category_name)
+                                if message:
+                                    if kick_enabled:
+                                        send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                    else:
+                                        send_message(game_folder, category_name)
+                        category_set_already = category_name
+                        if playnite_enabled:
+                            if not Playnite_Game_Stopped:
+                                if watcher_started:
+                                    stop_watcher()
                 # Reset den Status nach der Verzögerung
-                delayed_reset_called[game_folder] = False
+                delayed_reset_called[stopped_program] = False
+                displayed_warning = False
+                displayed_warning_category = False
 ##                print("Delay fertig")
                 
             # Die Verzögerung in Sekunden (umgerechnet von Millisekunden)
@@ -2199,100 +2621,236 @@ def main_logic():
             # Starte den Thread, der nach der Verzögerung die Reset-Funktion ausführt
             threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
 
-        def delayed_category_reset_dynamic(game_folder, displayed_games, seen_processes, current_seen):
-            global delay_general
+        def delayed_category_reset_dynamic(displayed_games, seen_processes, current_seen):
+            global delay_general, Playnite_Game_Stopped, game_stopped, game_folder
 
             delay_ms = delay_general
 
             def reset():
-                global category_set_already
+                global category_set_already, Playnite_Game_Stopped, game_stopped, game_folder
 
-                folder_open = False
-                try:
-                    for proc in psutil.process_iter(["pid", "name", "exe"]):
-                        exe_path = proc.info["exe"]
-                        if exe_path:
-                            if game_folder.lower() in exe_path.lower():
-                                folder_open = True
-                                break
-                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                    pass
-
-                if folder_open:
-                    return  # Ordner läuft noch, kein Reset
-
-                if game_folder in displayed_games:
-                    displayed_games.remove(game_folder)
-                    category_name = "Just Chatting"
-                    kick_category_name = "Just Chatting"
-                    if is_streamerbot_running():
-                        if category_set_already != category_name:
-                            if kick_enabled:
-                                category_change(category_name, kick_category_name)
-                            else:
-                                category_change(category_name)
-                            if message:
-                                if kick_enabled:
-                                    send_message(game_folder, category_name, kick_category_name, kick_failed=False)
-                                else:
-                                    send_message(game_folder, category_name)
-                    category_set_already = category_name
-
-                delayed_reset_called[game_folder] = False
-
-            delay_seconds = delay_ms / 1000.0
-            threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
-
-        # Beispiel für die Verwendung
-        # Überprüfen, ob der Prozess beendet wurde
-        for unique_id in seen_processes - current_seen:
-            pid, exe_path = unique_id
-
-            if language == 1:
-                print("-" * 90)
-                print(f"   ❌ Beendet: PID {pid}, Spiel: {game_folder}")
-                print("-" * 90)
-            if language == 0:
-                print("-" * 90)
-                print(f"   ❌ Closed: PID {pid}, Game: {game_folder}")
-                print("-" * 90)
-
-            if game_folder == "Software and game development":
-                if delay_programming and delay_programming > 0:
-                    # Wenn das Spiel im Ordner geschlossen wird und die Verzögerung noch nicht gesetzt wurde
-                    if game_folder not in delayed_reset_called or delayed_reset_called[game_folder] == False:
-                        delayed_category_reset(game_folder, displayed_games, seen_processes, current_seen)  # 50 Sekunden Verzögerung
-                        delayed_reset_called[game_folder] = False  # Verzögerung für diesen Ordner wurde gesetzt
-
-            elif game_folder != "Software and game development":
-                if delay_general and delay_general > 0:
+                reset = False
+                current_game = game_folder
+                stopped_game = game_stopped
+                
+                if current_game == stopped_game:
+                    reset = False
+                
+                if current_game != None and current_game != stopped_game:
+                    reset = False # Neues game geöffnet, kein Reset sondern direkt neue Kategorie
+                
+                if current_game == None:
+                    reset = True
                     
-                    if game_folder not in delayed_reset_called or not delayed_reset_called[game_folder]:
-                        delayed_category_reset_dynamic(game_folder, displayed_games, seen_processes, current_seen)
-                        delayed_reset_called[game_folder] = True
-                else:               
-                    displayed_warning = False
-                    displayed_warning_category = False
-
-                    # Entferne das Spiel aus displayed_games, wenn es beendet wurde
-                    if game_folder in displayed_games:
-                        displayed_games.remove(game_folder)
+                if reset:
+                    if stopped_game in displayed_games:
+                        displayed_games.remove(stopped_game)
                         category_name = "Just Chatting"
                         kick_category_name = "Just Chatting"
-                        
-                        failed = False
                         if is_streamerbot_running():
                             if category_set_already != category_name:
-                                if kick_enabled:                                
+                                if kick_enabled:
                                     category_change(category_name, kick_category_name)
-                                else:                                
-                                    category_change(category_name) 
+                                else:
+                                    category_change(category_name)
                                 if message:
                                     if kick_enabled:
                                         send_message(game_folder, category_name, kick_category_name, kick_failed=False)
                                     else:
                                         send_message(game_folder, category_name)
                         category_set_already = category_name
+                        if playnite_enabled:
+                            if not Playnite_Game_Stopped:
+                                if watcher_started:
+                                    stop_watcher()
+
+                delayed_reset_called[stopped_game] = False
+
+            delay_seconds = delay_ms / 1000.0
+            threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
+            
+            
+        def delayed_category_reset_playnite(displayed_games, seen_processes, current_seen):
+            global delay_general, Playnite_Game_Stopped, game_stopped, game_folder
+
+            delay_ms = delay_playnite
+
+            def reset():
+                global category_set_already, Playnite_Game_Stopped, game_stopped, game_folder
+
+                reset = False
+                current_game = game_folder
+                stopped_game = game_stopped
+                
+                if current_game == stopped_game:
+                    reset = False
+                
+                if current_game != None and current_game != stopped_game:
+                    reset = False # Neues game geöffnet, kein Reset sondern direkt neue Kategorie
+                
+                if current_game == None:
+                    reset = True
+                    
+                if reset:
+                    if stopped_game in displayed_games:
+                        displayed_games.remove(stopped_game)
+                        category_name = "Just Chatting"
+                        kick_category_name = "Just Chatting"
+                        if is_streamerbot_running():
+                            if category_set_already != category_name:
+                                if kick_enabled:
+                                    category_change(category_name, kick_category_name)
+                                else:
+                                    category_change(category_name)
+                                if message:
+                                    if kick_enabled:
+                                        send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                    else:
+                                        send_message(game_folder, category_name)
+                        category_set_already = category_name
+                        if playnite_enabled:
+                            if not Playnite_Game_Stopped:
+                                if watcher_started:
+                                    stop_watcher()
+
+                delayed_reset_called[stopped_game] = False
+                displayed_warning = False
+                displayed_warning_category = False
+                save_games_to_file = True
+
+            delay_seconds = delay_ms / 1000.0
+            threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
+        
+        if Playnite_Game_Stopped:
+            
+            if language == 1:
+                print("-" * 90)
+                print(f"   ❌ Spiel beendet: {game_folder}")
+                print("-" * 90)
+            if language == 0:
+                print("-" * 90)
+                print(f"   ❌ Game Closed: {game_folder}")
+                print("-" * 90) 
+            
+            if delay_playnite and delay_playnite > 0:
+                
+                Playnite_Game_Stopped = False
+                if game_folder not in delayed_reset_called or not delayed_reset_called[game_folder]:
+                    game_stopped = game_folder
+                    game_folder = None
+                    delayed_reset_called[game_stopped] = True
+                    delayed_category_reset_playnite(displayed_games, seen_processes, current_seen)
+                         
+    
+            else:               
+                displayed_warning = False
+                displayed_warning_category = False
+
+                # Entferne das Spiel aus displayed_games, wenn es beendet wurde
+                if game_folder in displayed_games:
+                    displayed_games.remove(game_folder)
+                    category_name = "Just Chatting"
+                    kick_category_name = "Just Chatting"
+                    
+                    failed = False
+                    if is_streamerbot_running():
+                        if category_set_already != category_name:
+                            if kick_enabled:                                
+                                category_change(category_name, kick_category_name)
+                            else:                                
+                                category_change(category_name) 
+                            if message:
+                                if kick_enabled:
+                                    send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                else:
+                                    send_message(game_folder, category_name)
+                    category_set_already = category_name
+                    Playnite_Game_Stopped = False
+            waiting_for_game = True
+            game_set = False
+            save_games_to_file = True
+            Playnite_Game_Retry = True
+       
+        if not is_playnite_running():
+            
+            if Playnite_exit or (playnite_running == True and waiting_for_game == False): 
+                if playnite_running == True:
+                    name = "Playnite"
+                else: 
+                    name = game_Folder
+                if language == 1:
+                    print("-" * 90)
+                    print(f"   ❌ {name} Beendet: PID {pid}")
+                    print("-" * 90)
+                if language == 0:
+                    print("-" * 90)
+                    print(f"   ❌ {name} Closed: PID {pid}")
+                    print("-" * 90)   
+                Playnite_exit = False
+                playnite_running = False
+                printed_closed = True
+                   
+                   
+            for unique_id in seen_processes - current_seen:
+                pid, exe_path = unique_id
+                if not printed_closed:
+                    if language == 1:
+                        print("-" * 90)
+                        print(f"   ❌ Beendet: PID {pid}, Spiel: {game_folder}")
+                        print("-" * 90)
+                    if language == 0:
+                        print("-" * 90)
+                        print(f"   ❌ Closed: PID {pid}, Game: {game_folder}")
+                        print("-" * 90)   
+                printed_closed = False
+
+                if game_folder == "Software and game development":
+                    
+                    if delay_programming and delay_programming > 0:
+                        # Wenn das Spiel im Ordner geschlossen wird und die Verzögerung noch nicht gesetzt wurde
+                        if game_folder not in delayed_reset_called or delayed_reset_called[game_folder] == False:
+                            program_stopped = game_folder
+                            game_folder = None
+                            delayed_reset_called[program_stopped] = True  # Verzögerung für diesen Ordner wurde gesetzt
+                            delayed_category_reset(displayed_games, seen_processes, current_seen)  # 50 Sekunden Verzögerung
+
+
+                elif game_folder != "Software and game development":
+                    if delay_general and delay_general > 0:
+                        
+                        if game_folder not in delayed_reset_called or not delayed_reset_called[game_folder]:
+                            game_stopped = game_folder
+                            game_folder = None
+                            delayed_reset_called[game_stopped] = True
+                            delayed_category_reset_dynamic(displayed_games, seen_processes, current_seen)
+                            
+                    else:               
+                        displayed_warning = False
+                        displayed_warning_category = False
+
+                        # Entferne das Spiel aus displayed_games, wenn es beendet wurde
+                        if game_folder in displayed_games:
+                            displayed_games.remove(game_folder)
+                            category_name = "Just Chatting"
+                            kick_category_name = "Just Chatting"
+                            
+                            failed = False
+                            game_set = False
+                            Playnite_exit = False
+                            if watcher_started:
+                                stop_watcher()
+                            if is_streamerbot_running():
+                                if category_set_already != category_name:
+                                    if kick_enabled:                                
+                                        category_change(category_name, kick_category_name)
+                                    else:                                
+                                        category_change(category_name) 
+                                    if message:
+                                        if kick_enabled:
+                                            send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                        else:
+                                            send_message(game_folder, category_name)
+                            category_set_already = category_name
 
                         
 ##            # Entferne das Spiel aus displayed_games, wenn es beendet wurde
@@ -2309,12 +2867,14 @@ def main_logic():
                 
         # Aktualisiere die Liste der bekannten Prozesse
         # Update list of known processes
+        
         seen_processes = current_seen.copy()
         # Speichern der gesammelten Spielinformationen in einer JSON-Datei
         # Save all Infos in json
         if first_save:
             if saved_games != previous_saved_games:
-                save_saved_games(saved_games)
+                if save_games_to_file:
+                    save_saved_games(saved_games)
                 previous_saved_games = saved_games.copy()
 
         if watch_obs:
