@@ -14,6 +14,7 @@
         mc:Ignorable="d">
     <Window.Resources>
         <!-- Main Gradient Resource -->
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         <LinearGradientBrush x:Key="MainGradient"
                             StartPoint="0,1"
                             EndPoint="1,0">
@@ -120,6 +121,77 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+
+        <Style x:Key="DropdownArrowToggleStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="OverridesDefaultStyle" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Grid Width="{TemplateBinding Width}" Height="{TemplateBinding Height}">
+                            <!-- Pfeil -->
+                            <Path x:Name="Arrow"
+                                Data="M 0 0 L 16 16 L 32 0 Z"
+                                Fill="#28AEED"
+                                Stretch="Uniform"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center">
+                                <Path.RenderTransform>
+                                    <ScaleTransform x:Name="ArrowScale" ScaleY="1" CenterX="16" CenterY="8"/>
+                                </Path.RenderTransform>
+                            </Path>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <!-- Checked: Flip und Farbe -->
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Arrow" Property="Fill" Value="#02c331" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ArrowScale"
+                                                            Storyboard.TargetProperty="ScaleY"
+                                                            To="-1"
+                                                            Duration="0:0:0.2"
+                                                            AccelerationRatio="0.3"
+                                                            DecelerationRatio="0.3"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ArrowScale"
+                                                            Storyboard.TargetProperty="ScaleY"
+                                                            To="1"
+                                                            Duration="0:0:0.2"
+                                                            AccelerationRatio="0.3"
+                                                            DecelerationRatio="0.3"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+
+                            <!-- Hover-Effekt -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Arrow" Property="Fill" Value="#00FFFF" />
+                            </Trigger>
+
+                            <!-- Klick-Effekt -->
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Arrow" Property="Opacity" Value="0.8" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+
+
 
         <!-- Translucent ScrollBar Style -->
         <Style x:Key="TranslucentScrollBar" TargetType="ScrollBar">
@@ -2378,6 +2450,8 @@
                             <Separator Margin="30,25,30,20"
                                        Style="{StaticResource StyledMainSeparator}" />
 
+                     	
+
                             <Grid Margin="0,0,0,10">
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto" />
@@ -2395,7 +2469,7 @@
                                 <TextBlock x:Name="AllowedPathsLabel"
                                         Grid.Row="0"
                                         Grid.Column="0"
-                                        Margin="10,0,0,0"
+                                        Margin="10,0,0,10"
                                         FontFamily="Segoe UI"
                                         FontSize="16"
                                         FontWeight="Bold"
@@ -2406,113 +2480,99 @@
                                 <ToggleButton x:Name="toggleAllowedPaths"
                                             Grid.Row="0"
                                             Grid.Column="1"
-                                            Margin="0,0,10,0"
+                                            Margin="0,-10,18,0"
                                             HorizontalAlignment="Right"
                                             VerticalAlignment="Center"
                                             IsChecked="False"
-                                            Style="{StaticResource ToggleSwitchStyle}" />
+                                            Style="{StaticResource DropdownArrowToggleStyle}" />
 
-                                <!-- ListBox for role selection -->
-                                <Border Grid.Row="1"
-                                        Grid.Column="0"
-                                        Grid.ColumnSpan="2"
-                                        Margin="40,10,40,0">
-                                <ListBox x:Name="Allowed_Paths"
-                                        Background="Transparent"
-                                        BorderBrush="Transparent"
-                                        BorderThickness="0"
-                                        FontFamily="Segoe UI"
-                                        FontSize="14"
-                                        FontWeight="Medium"
-                                        Foreground="White"
-                                        MaxHeight="250"
-                                        SelectionMode="Multiple">
-                                    
-                                    <!-- Stil für ListBox -->
-                                    <ListBox.Style>
-                                        <Style TargetType="ListBox">
-                                            <Setter Property="OverridesDefaultStyle" Value="True" />
-                                            <Setter Property="Background" Value="Transparent" />
-                                            <Setter Property="BorderBrush" Value="Transparent" />
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="ListBox">
-                                                        <Border x:Name="Bd"
-                                                                Background="{TemplateBinding Background}"
-                                                                BorderBrush="{TemplateBinding BorderBrush}"
-                                                                BorderThickness="{TemplateBinding BorderThickness}"
-                                                                SnapsToDevicePixels="True">
-                                                            <ScrollViewer x:Name="PART_ScrollViewer"
-                                                                        HorizontalScrollBarVisibility="Auto"
-                                                                        Padding="{TemplateBinding Padding}"
-                                                                        Background="Transparent"
-                                                                        Focusable="False"
-                                                                        IsEnabled="True"
-                                                                        Style="{StaticResource CustomScrollViewerStyle}">
-                                                                <ItemsPresenter Margin="0,0,0,5"/>
-                                                            </ScrollViewer>
-                                                        </Border>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsChecked, ElementName=toggleAllowedPaths}" Value="False">
-                                                    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ListBox.Style>
+                                <!-- Aufklappbarer Bereich -->
+                                <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="40,10,40,0"
+                                    x:Name="AllowedPathsContent" RenderTransformOrigin="0.5,0" Visibility="Collapsed">
+                                    <Grid.RenderTransform>
+                                        <ScaleTransform x:Name="AllowedPathsScale" ScaleY="0" />
+                                    </Grid.RenderTransform>
+                                    <Grid.Opacity>0</Grid.Opacity>
 
-                                    <!-- Stil für ListBoxItem -->
-                                    <ListBox.ItemContainerStyle>
-                                        <Style TargetType="ListBoxItem">
-                                            <Setter Property="Background" Value="Transparent" />
-                                            <Setter Property="Foreground" Value="White" />
-                                            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                                            <Setter Property="BorderThickness" Value="0" />
-                                            <Setter Property="IsHitTestVisible" Value="True" />
-                                            <Setter Property="Focusable" Value="True" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsChecked, ElementName=toggleAllowedPaths}" Value="False">
-                                                    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
-                                                    <Setter Property="IsHitTestVisible" Value="False" />
-                                                    <Setter Property="Focusable" Value="False" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ListBox.ItemContainerStyle>
+                                    <!-- Inhalt: ListBox + Buttons -->
+                                    <StackPanel>
+                                        <!-- ListBox -->
+                                        <Border Margin="25,0,25,0">
+                                            <ListBox x:Name="Allowed_Paths"
+                                                    Background="Transparent"
+                                                    BorderBrush="Transparent"
+                                                    BorderThickness="0"
+                                                    FontFamily="Segoe UI"
+                                                    FontSize="14"
+                                                    FontWeight="Medium"
+                                                    Foreground="White"
+                                                    MaxHeight="250"
+                                                    SelectionMode="Multiple">
+                                                <ListBox.Style>
+                                                    <Style TargetType="ListBox">
+                                                        <Setter Property="OverridesDefaultStyle" Value="True" />
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="ListBox">
+                                                                    <Border x:Name="Bd"
+                                                                            Background="{TemplateBinding Background}"
+                                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                                                            SnapsToDevicePixels="True">
+                                                                        <ScrollViewer x:Name="PART_ScrollViewer"
+                                                                                    HorizontalScrollBarVisibility="Auto"
+                                                                                    Padding="{TemplateBinding Padding}"
+                                                                                    Background="Transparent"
+                                                                                    Focusable="False"
+                                                                                    IsEnabled="True"
+                                                                                    Style="{StaticResource CustomScrollViewerStyle}">
+                                                                            <ItemsPresenter Margin="0,0,0,5"/>
+                                                                        </ScrollViewer>
+                                                                    </Border>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Style>
+                                                </ListBox.Style>
 
-                                    <!-- Beispielinhalte -->
-                                    <ListBoxItem Content="C:\\User\\Games\\" />
-                                </ListBox>
-                                </Border>
+                                                <ListBox.ItemContainerStyle>
+                                                    <Style TargetType="ListBoxItem">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="Foreground" Value="White" />
+                                                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                                        <Setter Property="BorderThickness" Value="0" />
+                                                        <Setter Property="IsHitTestVisible" Value="True" />
+                                                        <Setter Property="Focusable" Value="True" />
+                                                    </Style>
+                                                </ListBox.ItemContainerStyle>
 
-                                <!-- Buttons Add & Delete -->
-                                <StackPanel Grid.Row="2"
-                                            Grid.Column="0"
-                                            Grid.ColumnSpan="2"
-                                            Orientation="Horizontal"
-                                            HorizontalAlignment="Center"
-                                            Margin="0,5,0,0">
-                                
-                                    <Button x:Name="btnAddPathPopup"
-                                            Style="{StaticResource AddButtonStyle}"
-                                            Content="{Binding [Buttons.Add]}"
-                                            MinWidth="70"
-                                            Margin="5,0"
-                                            IsEnabled="{Binding ElementName=toggleAllowedPaths, Path=IsChecked}" />
+                                                <!-- Beispielinhalt -->
+                                                <ListBoxItem Content="C:\User\Games\" />
+                                            </ListBox>
+                                        </Border>
 
-                                    <Button x:Name="btnDelAllowedPath"
-                                            Style="{StaticResource DeleteButtonStyle}"
-                                            Content="{Binding [Buttons.Del]}"
-                                            Width="Auto"
-                                            Height="Auto"
-                                            Padding="12,8"
-                                            Margin="5,0"
-                                            IsEnabled="{Binding ElementName=toggleAllowedPaths, Path=IsChecked}" />
+                                        <!-- Buttons Add & Delete -->
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,5,0,0">
+                                            <Button x:Name="btnAddPathPopup"
+                                                    Style="{StaticResource AddButtonStyle}"
+                                                    Content="{Binding [Buttons.Add]}"
+                                                    MinWidth="70"
+                                                    Margin="5,0"
+                                                    IsEnabled="{Binding ElementName=toggleAllowedPaths, Path=IsChecked}" />
 
-
-                                </StackPanel>                              
+                                            <Button x:Name="btnDelAllowedPath"
+                                                    Style="{StaticResource DeleteButtonStyle}"
+                                                    Content="{Binding [Buttons.Del]}"
+                                                    Width="Auto"
+                                                    Height="Auto"
+                                                    Padding="12,8"
+                                                    Margin="5,0"
+                                                    IsEnabled="{Binding ElementName=toggleAllowedPaths, Path=IsChecked}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
                                 <!-- Description -->
                                 <TextBlock Grid.Row="3"
                                            Grid.Column="0"
@@ -2535,8 +2595,61 @@
                                            Grid.Column="0"
                                            Grid.ColumnSpan="2"
                                            Margin="100,30,100,10"
-                                           Style="{StaticResource StyledSeparator}" />                                         
-                            </Grid>                            	
+                                           Style="{StaticResource StyledSeparator}" />   
+
+                                <!-- Animation Trigger -->
+                                <Grid.Triggers>
+                                    <!-- Aufklappen -->
+                                    <EventTrigger RoutedEvent="ToggleButton.Checked" SourceName="toggleAllowedPaths">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <!-- Visibility zuerst sichtbar machen -->
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="AllowedPathsContent"
+                                                                            Storyboard.TargetProperty="Visibility">
+                                                    <DiscreteObjectKeyFrame KeyTime="0:0:0" Value="{x:Static Visibility.Visible}" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                                <DoubleAnimation Storyboard.TargetName="AllowedPathsScale"
+                                                                Storyboard.TargetProperty="ScaleY"
+                                                                To="1"
+                                                                Duration="0:0:0.25"
+                                                                AccelerationRatio="0.3"
+                                                                DecelerationRatio="0.3"/>
+                                                <DoubleAnimation Storyboard.TargetName="AllowedPathsContent"
+                                                                Storyboard.TargetProperty="Opacity"
+                                                                To="1"
+                                                                Duration="0:0:0.25"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+
+                                    <!-- Zuklappen -->
+                                    <EventTrigger RoutedEvent="ToggleButton.Unchecked" SourceName="toggleAllowedPaths">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="AllowedPathsScale"
+                                                                Storyboard.TargetProperty="ScaleY"
+                                                                To="0"
+                                                                Duration="0:0:0.25"
+                                                                AccelerationRatio="0.3"
+                                                                DecelerationRatio="0.3"/>
+                                                <DoubleAnimation Storyboard.TargetName="AllowedPathsContent"
+                                                                Storyboard.TargetProperty="Opacity"
+                                                                To="0"
+                                                                Duration="0:0:0.25"/>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="AllowedPathsContent"
+                                                                            Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0:0:0.25" Value="{x:Static Visibility.Collapsed}"/>
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Grid.Triggers>
+
+
+
+                            </Grid>
+
+
 
                             <Grid Margin="0,0,0,10">
                                 <Grid.RowDefinitions>
@@ -2555,7 +2668,7 @@
                                 <TextBlock x:Name="ExcludedNamesLabel"
                                         Grid.Row="0"
                                         Grid.Column="0"
-                                        Margin="10,0,0,0"
+                                        Margin="10,0,0,10"
                                         FontFamily="Segoe UI"
                                         FontSize="16"
                                         FontWeight="Bold"
@@ -2566,107 +2679,114 @@
                                 <ToggleButton x:Name="toggleNames"
                                             Grid.Row="0"
                                             Grid.Column="1"
-                                            Margin="0,0,10,0"
+                                            Margin="0,-10,18,0"
                                             HorizontalAlignment="Right"
                                             VerticalAlignment="Center"
                                             IsChecked="False"
-                                            Style="{StaticResource ToggleSwitchStyle}" />
+                                            Style="{StaticResource DropdownArrowToggleStyle}" />
+                                <!-- Aufklappbarer Bereich -->
+                                <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="40,10,40,0"
+                                    x:Name="ExcludedNamesContent" RenderTransformOrigin="0.5,0" Visibility="Collapsed">
+                                    <Grid.RenderTransform>
+                                        <ScaleTransform x:Name="ExcludedNamesScale" ScaleY="0" />
+                                    </Grid.RenderTransform>
+                                    <Grid.Opacity>0</Grid.Opacity>
 
-                                <!-- ListBox for role selection -->
-                                <Border Grid.Row="1"
-                                        Grid.Column="0"
-                                        Grid.ColumnSpan="2"
-                                        Margin="40,10,40,0">
-                                <ListBox x:Name="Excluded_Names"
-                                        Background="Transparent"
-                                        BorderBrush="Transparent"
-                                        BorderThickness="0"
-                                        FontFamily="Segoe UI"
-                                        FontSize="14"
-                                        FontWeight="Medium"
-                                        Foreground="White"
-                                        MaxHeight="250"
-                                        SelectionMode="Multiple">
-                                    
-                                    <!-- Stil für ListBox -->
-                                    <ListBox.Style>
-                                        <Style TargetType="ListBox">
-                                            <Setter Property="OverridesDefaultStyle" Value="True" />
-                                            <Setter Property="Background" Value="Transparent" />
-                                            <Setter Property="BorderBrush" Value="Transparent" />
-                                            <Setter Property="Template">
-                                                <Setter.Value>
-                                                    <ControlTemplate TargetType="ListBox">
-                                                        <Border x:Name="Bd"
-                                                                Background="{TemplateBinding Background}"
-                                                                BorderBrush="{TemplateBinding BorderBrush}"
-                                                                BorderThickness="{TemplateBinding BorderThickness}"
-                                                                SnapsToDevicePixels="True">
-                                                            <ScrollViewer x:Name="PART_ScrollViewer"
-                                                                        Padding="{TemplateBinding Padding}"
-                                                                        Background="Transparent"
-                                                                        Focusable="False"
-                                                                        IsEnabled="True"
-                                                                        Style="{StaticResource CustomScrollViewerStyle}">
-                                                                <ItemsPresenter />
-                                                            </ScrollViewer>
-                                                        </Border>
-                                                    </ControlTemplate>
-                                                </Setter.Value>
-                                            </Setter>
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsChecked, ElementName=toggleNames}" Value="False">
-                                                    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ListBox.Style>
+                                    <!-- Inhalt: ListBox + Buttons -->
+                                    <StackPanel Margin="25,0,25,0">
+                                        <!-- ListBox for role selection -->
+                                        <Border >
+                                            <ListBox x:Name="Excluded_Names"
+                                                    Background="Transparent"
+                                                    BorderBrush="Transparent"
+                                                    BorderThickness="0"
+                                                    FontFamily="Segoe UI"
+                                                    FontSize="14"
+                                                    FontWeight="Medium"
+                                                    Foreground="White"
+                                                    MaxHeight="250"
+                                                    SelectionMode="Multiple"
+                                                    >
+                                                
+                                                <!-- Stil für ListBox -->
+                                                <ListBox.Style>
+                                                    <Style TargetType="ListBox">
+                                                        <Setter Property="OverridesDefaultStyle" Value="True" />
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="BorderBrush" Value="Transparent" />
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="ListBox">
+                                                                    <Border x:Name="Bd"
+                                                                            Background="{TemplateBinding Background}"
+                                                                            BorderBrush="{TemplateBinding BorderBrush}"
+                                                                            BorderThickness="{TemplateBinding BorderThickness}"
+                                                                            SnapsToDevicePixels="True">
+                                                                        <ScrollViewer x:Name="PART_ScrollViewer"
+                                                                                    Padding="{TemplateBinding Padding}"
+                                                                                    Background="Transparent"
+                                                                                    Focusable="False"
+                                                                                    IsEnabled="True"
+                                                                                    Style="{StaticResource CustomScrollViewerStyle}">
+                                                                            <ItemsPresenter />
+                                                                        </ScrollViewer>
+                                                                    </Border>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsChecked, ElementName=toggleNames}" Value="False">
+                                                                <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ListBox.Style>
 
-                                    <!-- Stil für ListBoxItem -->
-                                    <ListBox.ItemContainerStyle>
-                                        <Style TargetType="ListBoxItem">
-                                            <Setter Property="Background" Value="Transparent" />
-                                            <Setter Property="Foreground" Value="White" />
-                                            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                                            <Setter Property="BorderThickness" Value="0" />
-                                            <Setter Property="IsHitTestVisible" Value="True" />
-                                            <Setter Property="Focusable" Value="True" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsChecked, ElementName=toggleNames}" Value="False">
-                                                    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
-                                                    <Setter Property="IsHitTestVisible" Value="False" />
-                                                    <Setter Property="Focusable" Value="False" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </ListBox.ItemContainerStyle>
-                                </ListBox>
-                                </Border>
+                                                <!-- Stil für ListBoxItem -->
+                                                <ListBox.ItemContainerStyle>
+                                                    <Style TargetType="ListBoxItem">
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="Foreground" Value="White" />
+                                                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                                        <Setter Property="BorderThickness" Value="0" />
+                                                        <Setter Property="IsHitTestVisible" Value="True" />
+                                                        <Setter Property="Focusable" Value="True" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsChecked, ElementName=toggleNames}" Value="False">
+                                                                <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                                                                <Setter Property="IsHitTestVisible" Value="False" />
+                                                                <Setter Property="Focusable" Value="False" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ListBox.ItemContainerStyle>
+                                            </ListBox>
+                                        </Border>
 
-                                <!-- Buttons Add & Delete -->
-                                <StackPanel Grid.Row="2"
-                                            Grid.Column="0"
-                                            Grid.ColumnSpan="2"
-                                            Orientation="Horizontal"
-                                            HorizontalAlignment="Center"
-                                            Margin="0,5,0,0">
-                                    
-                                    <Button x:Name="btnExeNamePopup"
-                                            Style="{StaticResource AddButtonStyle}"
-                                            Content="{Binding [Buttons.Add]}"
-                                            MinWidth="70"
-                                            Margin="5,0"
-                                            IsEnabled="{Binding ElementName=toggleNames, Path=IsChecked}" />
+                                        <!-- Buttons Add & Delete -->
+                                        <StackPanel Orientation="Horizontal"
+                                                    HorizontalAlignment="Center"
+                                                    Margin="0,5,0,0"
+                                                    >
+                                            
+                                            <Button x:Name="btnExeNamePopup"
+                                                    Style="{StaticResource AddButtonStyle}"
+                                                    Content="{Binding [Buttons.Add]}"
+                                                    MinWidth="70"
+                                                    Margin="5,0"
+                                                    IsEnabled="{Binding ElementName=toggleNames, Path=IsChecked}" />
 
-                                    <Button x:Name="btnDelete"
-                                            Style="{StaticResource DeleteButtonStyle}"
-                                            Content="{Binding [Buttons.Del]}"
-                                            Width="Auto"
-                                            Height="Auto"
-                                            Padding="12,8"
-                                            Margin="5,0"
-                                            IsEnabled="{Binding ElementName=toggleNames, Path=IsChecked}" />
-                                </StackPanel>                              
+                                            <Button x:Name="btnDelete"
+                                                    Style="{StaticResource DeleteButtonStyle}"
+                                                    Content="{Binding [Buttons.Del]}"
+                                                    Width="Auto"
+                                                    Height="Auto"
+                                                    Padding="12,8"
+                                                    Margin="5,0"
+                                                    IsEnabled="{Binding ElementName=toggleNames, Path=IsChecked}" />
+                                        </StackPanel>  
+                                    </StackPanel>
+                                </Grid>                            
                                 <!-- Description -->
                                 <TextBlock Grid.Row="3"
                                            Grid.Column="0"
@@ -2690,6 +2810,56 @@
                                            Grid.ColumnSpan="2"
                                            Margin="100,30,100,10"
                                            Style="{StaticResource StyledSeparator}" />                                         
+                                <!-- Animation Trigger -->
+                                <Grid.Triggers>
+                                    <!-- Aufklappen -->
+                                    <EventTrigger RoutedEvent="ToggleButton.Checked" SourceName="toggleNames">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <!-- Visibility zuerst sichtbar machen -->
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ExcludedNamesContent"
+                                                                            Storyboard.TargetProperty="Visibility">
+                                                    <DiscreteObjectKeyFrame KeyTime="0:0:0" Value="{x:Static Visibility.Visible}" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                                <DoubleAnimation Storyboard.TargetName="ExcludedNamesScale"
+                                                                Storyboard.TargetProperty="ScaleY"
+                                                                To="1"
+                                                                Duration="0:0:0.25"
+                                                                AccelerationRatio="0.3"
+                                                                DecelerationRatio="0.3"/>
+                                                <DoubleAnimation Storyboard.TargetName="ExcludedNamesContent"
+                                                                Storyboard.TargetProperty="Opacity"
+                                                                To="1"
+                                                                Duration="0:0:0.25"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+
+                                    <!-- Zuklappen -->
+                                    <EventTrigger RoutedEvent="ToggleButton.Unchecked" SourceName="toggleNames">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="ExcludedNamesScale"
+                                                                Storyboard.TargetProperty="ScaleY"
+                                                                To="0"
+                                                                Duration="0:0:0.25"
+                                                                AccelerationRatio="0.3"
+                                                                DecelerationRatio="0.3"/>
+                                                <DoubleAnimation Storyboard.TargetName="ExcludedNamesContent"
+                                                                Storyboard.TargetProperty="Opacity"
+                                                                To="0"
+                                                                Duration="0:0:0.25"/>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ExcludedNamesContent"
+                                                                            Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0:0:0.25" Value="{x:Static Visibility.Collapsed}"/>
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Grid.Triggers>
+
+
+
                             </Grid>
 
                             <Grid Margin="0,0,0,10">
@@ -2709,7 +2879,7 @@
                                 <TextBlock x:Name="ExcludedFoldersLabel"
                                         Grid.Row="0"
                                         Grid.Column="0"
-                                        Margin="10,0,0,0"
+                                        Margin="10,0,0,10"
                                         FontFamily="Segoe UI"
                                         FontSize="16"
                                         FontWeight="Bold"
@@ -2720,111 +2890,119 @@
                                 <ToggleButton x:Name="toggleExcludedFolders"
                                             Grid.Row="0"
                                             Grid.Column="1"
-                                            Margin="0,0,10,0"
+                                            Margin="0,-10,18,0"
                                             HorizontalAlignment="Right"
                                             VerticalAlignment="Center"
                                             IsChecked="False"
-                                            Style="{StaticResource ToggleSwitchStyle}" />
+                                            Style="{StaticResource DropdownArrowToggleStyle}" />
+                                <!-- Aufklappbarer Bereich -->
+                                <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="40,10,40,0"
+                                    x:Name="ExcludedFoldersContent" RenderTransformOrigin="0.5,0" Visibility="Collapsed">
+                                    <Grid.RenderTransform>
+                                        <ScaleTransform x:Name="ExcludedFoldersScale" ScaleY="0" />
+                                    </Grid.RenderTransform>
+                                    <Grid.Opacity>0</Grid.Opacity>
+                                    <!-- ListBox for Excluded Folders -->
+                                        <!-- Inhalt: ListBox + Buttons -->
+                                        <StackPanel>
+                                            <!-- ListBox for role selection -->
 
-                                <!-- ListBox for Excluded Folders -->
-                                <Border Grid.Row="1"
-                                        Grid.Column="0"
-                                        Grid.ColumnSpan="2"
-                                        Margin="40,10,40,0">
-                                    <ListBox x:Name="Excluded_Folders"
-                                            Background="Transparent"
-                                            BorderBrush="Transparent"
-                                            BorderThickness="0"
-                                            FontFamily="Segoe UI"
-                                            FontSize="14"
-                                            FontWeight="Medium"
-                                            Foreground="White"
-                                            MaxHeight="250"
-                                            SelectionMode="Multiple">
-                                
-                                        <!-- Stil für ListBox -->
-                                        <ListBox.Style>
-                                            <Style TargetType="ListBox">
-                                                <Setter Property="OverridesDefaultStyle" Value="True" />
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="BorderBrush" Value="Transparent" />
-                                                <Setter Property="Template">
-                                                    <Setter.Value>
-                                                        <ControlTemplate TargetType="ListBox">
-                                                            <Border x:Name="Bd"
-                                                                    Background="{TemplateBinding Background}"
-                                                                    BorderBrush="{TemplateBinding BorderBrush}"
-                                                                    BorderThickness="{TemplateBinding BorderThickness}"
-                                                                    SnapsToDevicePixels="True">
-                                                                <ScrollViewer x:Name="PART_ScrollViewer"
-                                                                            Padding="{TemplateBinding Padding}"
-                                                                            Background="Transparent"
-                                                                            Focusable="False"
-                                                                            IsEnabled="True"
-                                                                            Style="{StaticResource CustomScrollViewerStyle}">
-                                                                    <ItemsPresenter />
-                                                                </ScrollViewer>
-                                                            </Border>
-                                                        </ControlTemplate>
-                                                    </Setter.Value>
-                                                </Setter>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsChecked, ElementName=toggleExcludedFolders}" Value="False">
-                                                        <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </ListBox.Style>
+                                            <Border Margin="25,0,25,0">
+                                                <ListBox x:Name="Excluded_Folders"
+                                                        Background="Transparent"
+                                                        BorderBrush="Transparent"
+                                                        BorderThickness="0"
+                                                        FontFamily="Segoe UI"
+                                                        FontSize="14"
+                                                        FontWeight="Medium"
+                                                        Foreground="White"
+                                                        MaxHeight="250"
+                                                        SelectionMode="Multiple"
+                                                        >
+                                            
+                                                    <!-- Stil für ListBox -->
+                                                    <ListBox.Style>
+                                                        <Style TargetType="ListBox">
+                                                            <Setter Property="OverridesDefaultStyle" Value="True" />
+                                                            <Setter Property="Background" Value="Transparent" />
+                                                            <Setter Property="BorderBrush" Value="Transparent" />
+                                                            <Setter Property="Template">
+                                                                <Setter.Value>
+                                                                    <ControlTemplate TargetType="ListBox">
+                                                                        <Border x:Name="Bd"
+                                                                                Background="{TemplateBinding Background}"
+                                                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                                                BorderThickness="{TemplateBinding BorderThickness}"
+                                                                                SnapsToDevicePixels="True">
+                                                                            <ScrollViewer x:Name="PART_ScrollViewer"
+                                                                                        Padding="{TemplateBinding Padding}"
+                                                                                        Background="Transparent"
+                                                                                        Focusable="False"
+                                                                                        IsEnabled="True"
+                                                                                        Style="{StaticResource CustomScrollViewerStyle}">
+                                                                                <ItemsPresenter />
+                                                                            </ScrollViewer>
+                                                                        </Border>
+                                                                    </ControlTemplate>
+                                                                </Setter.Value>
+                                                            </Setter>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsChecked, ElementName=toggleExcludedFolders}" Value="False">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ListBox.Style>
 
-                                        <!-- Stil für ListBoxItem -->
-                                        <ListBox.ItemContainerStyle>
-                                            <Style TargetType="ListBoxItem">
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Foreground" Value="White" />
-                                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                                                <Setter Property="BorderThickness" Value="0" />
-                                                <Setter Property="IsHitTestVisible" Value="True" />
-                                                <Setter Property="Focusable" Value="True" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsChecked, ElementName=toggleExcludedFolders}" Value="False">
-                                                        <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
-                                                        <Setter Property="IsHitTestVisible" Value="False" />
-                                                        <Setter Property="Focusable" Value="False" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </ListBox.ItemContainerStyle>
+                                                    <!-- Stil für ListBoxItem -->
+                                                    <ListBox.ItemContainerStyle>
+                                                        <Style TargetType="ListBoxItem">
+                                                            <Setter Property="Background" Value="Transparent" />
+                                                            <Setter Property="Foreground" Value="White" />
+                                                            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                                            <Setter Property="BorderThickness" Value="0" />
+                                                            <Setter Property="IsHitTestVisible" Value="True" />
+                                                            <Setter Property="Focusable" Value="True" />
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsChecked, ElementName=toggleExcludedFolders}" Value="False">
+                                                                    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
+                                                                    <Setter Property="IsHitTestVisible" Value="False" />
+                                                                    <Setter Property="Focusable" Value="False" />
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </ListBox.ItemContainerStyle>
 
-                                        <!-- Beispielinhalte -->
-                                        <ListBoxItem Content="FolderXY" />
-                                    </ListBox>
-                                </Border>
+                                                    <!-- Beispielinhalte -->
+                                                    <ListBoxItem Content="FolderXY" />
+                                                </ListBox>
+                                        </Border>
 
 
-                                <!-- Buttons Add & Delete -->
-                                <StackPanel Grid.Row="2"
-                                            Grid.Column="0"
-                                            Grid.ColumnSpan="2"
-                                            Orientation="Horizontal"
-                                            HorizontalAlignment="Center"
-                                            Margin="0,5,0,0">
-                                    
-                                    <Button x:Name="btnAddFolderNamePopup"
-                                                Style="{StaticResource AddButtonStyle}"
-                                                Content="{Binding [Buttons.Add]}"
-                                                MinWidth="70"
-                                                Margin="5,0"
-                                                IsEnabled="{Binding ElementName=toggleExcludedFolders, Path=IsChecked}" />
+                                        <!-- Buttons Add & Delete -->
+                                        <StackPanel Orientation="Horizontal"
+                                                    HorizontalAlignment="Center"
+                                                    Margin="0,5,0,0"
+                                                    >
+                                            
+                                            <Button x:Name="btnAddFolderNamePopup"
+                                                        Style="{StaticResource AddButtonStyle}"
+                                                        Content="{Binding [Buttons.Add]}"
+                                                        MinWidth="70"
+                                                        Margin="5,0"
+                                                        IsEnabled="{Binding ElementName=toggleExcludedFolders, Path=IsChecked}" />
 
-                                    <Button x:Name="btnDelExcludedFolders"
-                                            Style="{StaticResource DeleteButtonStyle}"
-                                            Content="{Binding [Buttons.Del]}"
-                                            Width="Auto"
-                                            Height="Auto"
-                                            Padding="12,8"
-                                            Margin="5,0"
-                                            IsEnabled="{Binding ElementName=toggleExcludedFolders, Path=IsChecked}" />
-                                </StackPanel>  
+                                            <Button x:Name="btnDelExcludedFolders"
+                                                    Style="{StaticResource DeleteButtonStyle}"
+                                                    Content="{Binding [Buttons.Del]}"
+                                                    Width="Auto"
+                                                    Height="Auto"
+                                                    Padding="12,8"
+                                                    Margin="5,0"
+                                                    IsEnabled="{Binding ElementName=toggleExcludedFolders, Path=IsChecked}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>  
                                 <!-- Description -->
                                 <TextBlock Grid.Row="3"
                                            Grid.Column="0"
@@ -2847,7 +3025,54 @@
                                            Grid.Column="0"
                                            Grid.ColumnSpan="2"
                                            Margin="100,30,100,10"
-                                           Style="{StaticResource StyledSeparator}" />   
+                                           Style="{StaticResource StyledSeparator}" />
+                                <!-- Animation Trigger -->
+                                <Grid.Triggers>
+                                    <!-- Aufklappen -->
+                                    <EventTrigger RoutedEvent="ToggleButton.Checked" SourceName="toggleExcludedFolders">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <!-- Visibility zuerst sichtbar machen -->
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ExcludedFoldersContent"
+                                                                            Storyboard.TargetProperty="Visibility">
+                                                    <DiscreteObjectKeyFrame KeyTime="0:0:0" Value="{x:Static Visibility.Visible}" />
+                                                </ObjectAnimationUsingKeyFrames>
+                                                <DoubleAnimation Storyboard.TargetName="ExcludedFoldersScale"
+                                                                Storyboard.TargetProperty="ScaleY"
+                                                                To="1"
+                                                                Duration="0:0:0.25"
+                                                                AccelerationRatio="0.3"
+                                                                DecelerationRatio="0.3"/>
+                                                <DoubleAnimation Storyboard.TargetName="ExcludedFoldersContent"
+                                                                Storyboard.TargetProperty="Opacity"
+                                                                To="1"
+                                                                Duration="0:0:0.25"/>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+
+                                    <!-- Zuklappen -->
+                                    <EventTrigger RoutedEvent="ToggleButton.Unchecked" SourceName="toggleExcludedFolders">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="ExcludedFoldersScale"
+                                                                Storyboard.TargetProperty="ScaleY"
+                                                                To="0"
+                                                                Duration="0:0:0.25"
+                                                                AccelerationRatio="0.3"
+                                                                DecelerationRatio="0.3"/>
+                                                <DoubleAnimation Storyboard.TargetName="ExcludedFoldersContent"
+                                                                Storyboard.TargetProperty="Opacity"
+                                                                To="0"
+                                                                Duration="0:0:0.25"/>
+                                                <ObjectAnimationUsingKeyFrames Storyboard.TargetName="ExcludedFoldersContent"
+                                                                            Storyboard.TargetProperty="Visibility">
+                                                <DiscreteObjectKeyFrame KeyTime="0:0:0.25" Value="{x:Static Visibility.Collapsed}"/>
+                                                </ObjectAnimationUsingKeyFrames>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Grid.Triggers>   
                             </Grid> 
 
                             <!-- Streamer.Bot URL und Port nebeneinander -->
@@ -3060,15 +3285,21 @@
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
                                 <!-- Label -->
-                                <TextBlock x:Name="KickLabel"
-                                           Grid.Row="0"
-                                           Grid.Column="0"
-                                           Margin="10,0,0,0"
-                                           FontFamily="Segoe UI"
-                                           FontSize="16"
-                                           FontWeight="Bold"
-                                           Foreground="White"
-                                           Text="{Binding [Kick.Label]}" />
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">  
+                                    <TextBlock x:Name="KickLabel"
+                                            Grid.Row="0"
+                                            Grid.Column="0"
+                                            Margin="10,0,0,0"
+                                            FontFamily="Segoe UI"
+                                            FontSize="16"
+                                            FontWeight="Bold"
+                                            Foreground="White"
+                                            Text="{Binding [Kick.Label]}" />
+                                <Image Tag="_internal/Assets/kick.png" Source=""
+                                    Width="18" Height="18" Margin="5,0,0,0" />                                        
+
+
+                                </StackPanel>
                                 <!-- Toggle -->
                                 <ToggleButton x:Name="toggleKick"
                                               Grid.Row="0"
@@ -3078,6 +3309,7 @@
                                               VerticalAlignment="Center"
                                               IsChecked="True"
                                               Style="{StaticResource ToggleSwitchStyle}" />
+                                
                                 <!-- Description -->
                                 <TextBlock Grid.Row="2"
                                            Grid.Column="0"
@@ -3093,6 +3325,69 @@
                                     <Run Text="{Binding [General.Warning], Mode=OneWay}" Foreground="OrangeRed" FontWeight="Bold" />
                                     <LineBreak/>
                                     <Run Text="{Binding [Kick.Experimental], Mode=OneWay}" />
+                                </TextBlock>
+                                <Separator Grid.Row="3"
+                                        Grid.Column="0"
+                                        Grid.ColumnSpan="2"
+                                        Margin="100,30,100,10"
+                                        Style="{StaticResource StyledSeparator}" />
+                            </Grid>
+
+                            <!-- Enable Playnite Section -->
+                            <Grid Margin="0,0,0,10">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">                             
+                                <!-- Label -->
+                                <TextBlock x:Name="PlayniteLabel"
+                                           Grid.Row="0"
+                                           Grid.Column="0"
+                                           Margin="10,0,0,0"
+                                           FontFamily="Segoe UI"
+                                           FontSize="16"
+                                           FontWeight="Bold"
+                                           Foreground="White"
+                                           Text="{Binding [Playnite.Label]}" />
+                                <Image Tag="_internal/Assets/playnite.png" Source=""
+                                    Width="24" Height="24" Margin="5,0,0,0" />     
+                                </StackPanel>                           
+                                <!-- Toggle -->
+                                <ToggleButton x:Name="togglePlaynite"
+                                              Grid.Row="0"
+                                              Grid.Column="1"
+                                              Margin="0,0,10,0"
+                                              HorizontalAlignment="Right"
+                                              VerticalAlignment="Center"
+                                              IsChecked="True"
+                                              Style="{StaticResource ToggleSwitchStyle}" />
+                        
+                                <!-- Description -->
+                                <TextBlock Grid.Row="2"
+                                           Grid.Column="0"
+                                           Grid.ColumnSpan="2"
+                                           FontFamily="Segoe UI"
+                                           FontSize="14"
+                                           FontStyle="Italic"
+                                           Foreground="LightGray"
+                                           Margin="50,10,50,0"
+                                           TextWrapping="Wrap" >
+                                    <Run Text="{Binding [Playnite.Description], Mode=OneWay}" />
+                                    <LineBreak/>
+                                    <Run Text="{Binding [General.Requirements], Mode=OneWay}" Foreground="LimeGreen" FontWeight="Bold" />
+                                    <LineBreak/>
+                                    <Run Text="{Binding [Playnite.Requirements], Mode=OneWay}"/>
+                                    <LineBreak/>
+                                    <Run Text="{Binding [General.Warning], Mode=OneWay}" Foreground="OrangeRed" FontWeight="Bold" />
+                                    <LineBreak/>
+                                    <Run Text="{Binding [Playnite.Experimental], Mode=OneWay}" />
                                 </TextBlock>
 
                             </Grid>
@@ -3276,6 +3571,89 @@
                                            Foreground="LightGray"
                                            xml:space="preserve"
                                            Text="{Binding [DelayProgramming.Description]}"
+                                           TextWrapping="Wrap" />
+                                <!-- Separator -->
+                                <Separator Grid.Row="4"
+                                           Grid.Column="0"
+                                           Grid.ColumnSpan="2"
+                                           Margin="100,30,100,10"
+                                           Style="{StaticResource StyledSeparator}" />
+                            </Grid>
+                            <!-- Delay Playnite Section -->
+                            <Grid Margin="0,0,0,10"
+                                x:Name="gridDelayPlaynite"
+                                Visibility="{Binding ElementName=togglePlaynite, Path=IsChecked, Converter={StaticResource BoolToVisibilityConverter}}">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <!-- Label -->
+                                <TextBlock x:Name="DelayPlayniteLabel"
+                                           Grid.Row="0"
+                                           Grid.Column="0"
+                                           Margin="10,0,0,0"
+                                           FontFamily="Segoe UI"
+                                           FontSize="16"
+                                           FontWeight="Bold"
+                                           Foreground="White"
+                                           Text="{Binding [DelayPlaynite.Label]}" />
+                                <!-- Toggle Switch -->
+                                <ToggleButton x:Name="toggleDelayPlaynite"
+                                              Grid.Row="0"
+                                              Grid.Column="1"
+                                              Margin="0,0,10,0"
+                                              HorizontalAlignment="Right"
+                                              VerticalAlignment="Center"
+                                              IsChecked="False"
+                                              Style="{StaticResource ToggleSwitchStyle}" />
+                                <!-- Slider -->
+                                <Border Grid.Row="1"
+                                        Grid.Column="0"
+                                        Grid.ColumnSpan="2"
+                                        Margin="10,0,10,0">
+                                    <Slider x:Name="sldDelayPlaynite"
+                                            Style="{StaticResource ModernSliderStyle}"
+                                            Margin="40,10,40,0"
+                                            Width="450"
+                                            Background="Transparent"
+                                            IsEnabled="{Binding ElementName=toggleDelayPlaynite, Path=IsChecked}"
+                                            IsSnapToTickEnabled="True"
+                                            IsMoveToPointEnabled="True"
+                                            Maximum="300"
+                                            Minimum="0"
+                                            TickFrequency="1"
+                                            Value="60" />
+                                </Border>
+                                <!-- Current Value Display -->
+                                <TextBlock Grid.Row="2"
+                                           Grid.Column="0"
+                                           Grid.ColumnSpan="2"
+                                           Margin="50,5,0,0"
+                                           FontFamily="Segoe UI"
+                                           FontSize="14"
+                                           Foreground="White">
+                                    <Run Text="{Binding [DelayPlaynite.Current], Mode=OneWay}" />
+                                    <Run Text="{Binding ElementName=sldDelayPlaynite, Path=Value, StringFormat={}{0:F0} , Mode=OneWay}" />
+                                    <Run Text="{Binding [General.Seconds], Mode=OneWay}" />
+                                </TextBlock>
+                                <!-- Description -->
+                                <TextBlock Grid.Row="3"
+                                           Grid.Column="0"
+                                           Grid.ColumnSpan="2"
+                                           Margin="50,10,50,0"
+                                           FontFamily="Segoe UI"
+                                           FontSize="14"
+                                           FontStyle="Italic"
+                                           Foreground="LightGray"
+                                           xml:space="preserve"
+                                           Text="{Binding [DelayPlaynite.Description]}"
                                            TextWrapping="Wrap" />
                                 <!-- Separator -->
                                 <Separator Grid.Row="4"
@@ -4661,7 +5039,7 @@
                                     </Button.Template>
                                 </Button>
 
-                                <CheckBox x:Name="AutoUpdateCheckbox" Content="Automatisch nach Updates prüfen"
+                                <CheckBox x:Name="AutoUpdateCheckbox" Content="{Binding [Update_Overlay.Updatecheck_Action]}"
                                         Cursor="Hand"
                                         HorizontalAlignment="Center"
                                         FontFamily="Segoe UI"
@@ -5179,6 +5557,9 @@
                                 </Storyboard>
                             </StackPanel.Resources>
 
+                            <Border x:Name="UpdateImport" Background="#500F0F0F" CornerRadius="12" Padding="12,10,12,10" BorderBrush="#15FFFFFF" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,10" Visibility="Collapsed">
+                            <TextBlock FontSize="16" Foreground="Red" TextAlignment="Center" Margin="15,0,15,0" Text="{Binding [Update_Overlay.Update_Import], Mode=OneWay}" />
+                            </Border>
                             <!-- Fortschritt Text -->
                             <TextBlock x:Name="ProgressText"
                                     Text="0 MB von 0 MB geladen"
@@ -5254,12 +5635,14 @@
                                                 Cursor="Hand"
                                                 FontFamily="Segoe UI Semibold"
                                                 Foreground="White"
+                                                FontSize="16"
                                                 Style="{StaticResource NoButtonStyle}"
+                                                ClipToBounds="False"
                                                 Visibility="Collapsed">
                                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                 <Image Margin="-8,0,0,0" Tag="_internal/Assets/cancel.png" Source="https://img.icons8.com/?size=100&amp;id=fYgQxDaH069W&amp;format=png&amp;color=000000"
-                                                    Width="30" Height="30"  />
-                                                <TextBlock Text="{Binding [Update_Overlay.CancelBtn], Mode=OneWay}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold" Margin="-8,0,4,0" />
+                                                    Width="39" Height="39" Stretch="UniformToFill" />
+                                                <TextBlock Text="{Binding [Update_Overlay.CancelBtn], Mode=OneWay}" VerticalAlignment="Center" Foreground="White" FontWeight="SemiBold" Margin="-4,0,10,0" ClipToBounds="False" />
                                             </StackPanel>        
                                         </Button>
                                         <Button x:Name="btnGithub"
