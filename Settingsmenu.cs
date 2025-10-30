@@ -3756,7 +3756,7 @@ public class CPHInline
                     {
                         HasUpdateImport = true;
                     }
-                    MessageBox.Show($"Updatestevo: {HasUpdateImport}");
+                    //MessageBox.Show($"Updatestevo: {HasUpdateImport}");
                     }
 
                 return _lastUpdateResult;
@@ -3868,26 +3868,7 @@ public class CPHInline
             //MessageBox.Show($"Remote Versionen:\n" + $"Programm: {remoteProgramVersion}\n" + $"Settings: {remoteSettingsVersion}","Debug", MessageBoxButton.OK, MessageBoxImage.Information);
             result.ProgramUpdate = new Version(remoteProgramVersion) > new Version(localVersion.ProgramVersion);
             result.SettingsUpdate = new Version(remoteSettingsVersion) > new Version(localVersion.SettingsVersion);
-
-
-
-            //var updateimport = remoteJson["assets"] as JArray;
-            // if (updateimport != null)
-            // {
-            //     foreach (var asset in updateimport)
-            //     {
-            //         string name = asset["name"]?.ToString() ?? "";
-            //         if (name.Equals("Update.stevo", StringComparison.OrdinalIgnoreCase))
-            //         {
-            //             result.HasUpdateImport = true;
-            //             HasUpdateImport = true;
-            //             CPH.LogInfo($"Update.stevo gefunden: {result.HasUpdateImport}");
-            //             CPH.LogInfo($"Update.stevo gefunden gloal variable: {HasUpdateImport}");
-            //             break;
-            //         }
-            //     }
-            // }
-            
+           
 
             //MessageBox.Show($"Update-Check Ergebnis:\n" + $"Programm Update: {result.ProgramUpdate}\n" + $"Settings Update: {result.SettingsUpdate}", "Debug", MessageBoxButton.OK, MessageBoxImage.Information);
             // Release Notes auslesen
