@@ -1,3 +1,38 @@
+## :small_blue_diamond: **v2.0.1-Sv1.0.1 (DE)**
+
+### ✨ Features
+- 📦 **Playnite Integration** Es werden nun auch Spiele in **Playnite** erkannt, somit nun auch Emulator-Spiele möglich zu matchen.
+  - ⚠️Achtung: Nur mit dem Zusatz Playnite Addon **Running Game To Json** möglich! 
+  - ⚠️Achtung 2: Wenn Playnite geschlossen wird, wird die Kategorie zu Just Chatting gewechselt auch wenn das Spiel noch läuft.
+- ⚙️ **Backups** Es werden die 3 wichtigeen Dateien `config.json`, `game_data.json` und `Version.json` in einem Backup gesichert und automatisch wiederhegestellt bei Fehler.
+
+### ⚙️ Verbesserungen (QoL)
+- ✅ Verzögerunden der Kategorie-Änderungen werden anders behandelt und funktionieren richtig.
+- 🎮 Wenn Verzögerung aktiv - bei öffnen eines neuen Spiels - wird die Kategorie sofort zu dem Spiel gewechselt, anstatt zu Just Chatting
+
+### 🛠️ Kategorie-Matching Fixes
+- 🎮 Fix für **Dispatch**.
+- 🎮 Fix für **Demo,Alpha,Beta,Test** diese werden nun korrekt als die Spiele erkannt und gesetzt
+- 🔧 Verschiedene kleinere Bugfixes  
+
+## :small_blue_diamond: **v2.0.1-Sv1.0.1 (EN)**
+
+### ✨ Features
+- 📦 **Playnite Integration** Games from **Playnite** are now detected as well, making it possible to match emulator games. 
+  - ⚠️ Note: Only works with the additional playnite addon **Running Game To Json**!
+  - ⚠️ Note 2: When Playnite is closed, the category will also change to Just Chatting if the game is still running.
+- ⚙️ **Backups** The 3 important files `config.json`, `game_data.json` and `Version.json` are saved in a backup and automatically restored in case of errors.
+  
+### ⚙️ Improvements (QoL)
+- ✅ Delays in category changes are now handled differently and work correctly.
+- 🎮 When delay is active – opening a new game now immediately switches to the game’s category instead of Just Chatting.
+
+### 🛠️ Category-Matching Fixes
+- 🎮 Fix for **Dispatch**.
+- 🎮 Fix for **Demo, Alpha, Beta, Test** Games – these are now correctly recognized as the full games.
+- 🔧 Various smaller bug fixes.
+
+
 ## :small_blue_diamond: **v2.0-Sv1.0 (DE)**
 
 ### ✨ Features
