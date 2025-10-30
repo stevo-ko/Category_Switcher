@@ -1792,7 +1792,7 @@ public class CPHInline
                 ["censor_mode"] = ((ToggleButton)window.FindName("toggleCensorMode")).IsChecked == true,
                 ["AsAnnouncement"] = ((ToggleButton)window.FindName("toggleAsAnnouncement")).IsChecked == true,
                 ["kick_enabled"] = ((ToggleButton)window.FindName("toggleKick")).IsChecked == true,
-                //["playnite_enabled"] = ((ToggleButton)window.FindName("togglePlaynite")).IsChecked == true,
+                ["playnite_enabled"] = ((ToggleButton)window.FindName("togglePlaynite")).IsChecked == true,
                 ["language"] = currentLanguage,
                 ["delay_general"] = (int)((Slider)window.FindName("sldDelayGeneral")).Value,
                 ["delay_programming"] = (int)((Slider)window.FindName("sldDelayProgramming")).Value,
