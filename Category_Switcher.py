@@ -2026,9 +2026,7 @@ def main_logic():
                     if is_playnite_running() or game_set:
                         continue
 
-                if "runelite" in exe_lower and exe_lower.endswith(".exe"):
-                    game_folder = "Old School RuneScape"
-                    kick_game_folder = "Old School RuneScape"
+
                                     
                 if (("playnite.desktopapp" in exe_lower or "playnite.fullscreenapp" in exe_lower ) and exe_lower.endswith(".exe")):
                     playnite_running = True
@@ -2234,6 +2232,10 @@ def main_logic():
                 if "retroarch" in game_folder.lower():
                     game_folder = "Retro"
                     kick_game_folder = "Retro Games"
+
+                if "runelite" in game_folder.lower():
+                    game_folder = "Old School RuneScape"
+                    kick_game_folder = "Old School RuneScape"
 
                 # Entfernt alle gängigen Test-Endungen wie Demo, Alpha, Beta, Test (mit Klammern, Bindestrichen, Version etc.)
                 # Liste möglicher Suffixe
