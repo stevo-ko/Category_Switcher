@@ -2114,6 +2114,22 @@ def main_logic():
 
 ##                print(f" Debug output game_folder: {game_folder}")
 
+                # launcher excludes
+
+                launcher_list = [
+                    "riot games",
+                    "battle.net",
+                    "electronic arts",
+                    "ubisoft game launcher",
+                    "origin games",
+                    "epic games",
+                    "ea desktop",
+                    "electronic arts"
+                ]
+
+                if game_folder.lower() in launcher_list:
+                    continue
+                
                 # Spezial Fälle für Emulator Games zum matchen
                 
                 if "digimon world 2003" in game_folder.lower():
