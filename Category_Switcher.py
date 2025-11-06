@@ -752,8 +752,8 @@ CLIENT_ID = None
 access_token = None
 token_valid = False
 kick_token = None
-kick_client_id = "01K522FTDDT2NX0H5TEX6Y8E3C"
-kick_client_secret = "350facdb7949489f24c96ef0ea75e989649371428e643d9381e0f7d83278ef5a"
+kick_client_id = ""
+kick_client_secret = ""
 kick_enabled = None
 kick_missing = False
 category_set_already = None
@@ -1960,6 +1960,9 @@ def main_logic():
 
                 if "webhandler" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
+
+                if "webhelper" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue
                 
                 if "weblauncher" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
@@ -2124,7 +2127,8 @@ def main_logic():
                     "origin games",
                     "epic games",
                     "ea desktop",
-                    "electronic arts"
+                    "electronic arts",
+                    "steam"
                 ]
 
                 if game_folder.lower() in launcher_list:
