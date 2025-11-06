@@ -1975,7 +1975,16 @@ def main_logic():
 
                 if "ace-service" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
-
+                
+                if "unrealcefsubprocess" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue
+                
+                if "eadestager" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue
+                
+                if "sguard" in exe_lower and exe_lower.endswith(".exe"): 
+                    continue               
+                
                 if "msedge" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
                 if "gamebar" in exe_lower and exe_lower.endswith(".exe"): 
@@ -2002,6 +2011,12 @@ def main_logic():
                                     
                 if "vc_redist" in exe_lower and exe_lower.endswith(".exe"): 
                     continue
+
+                if "easyanticheat" in exe_lower and exe_lower.endswith(".exe"):
+                    continue
+
+                if "eac-eos" in exe_lower and exe_lower.endswith(".exe"):
+                    continue
                 
                 if "cefsharp.browsersubprocess" in exe_lower and exe_lower.endswith(".exe"):
                     continue
@@ -2011,6 +2026,9 @@ def main_logic():
                     if is_playnite_running() or game_set:
                         continue
 
+                if "runelite" in exe_lower and exe_lower.endswith(".exe"):
+                    game_folder = "Old School RuneScape"
+                    kick_game_folder = "Old School RuneScape"
                                     
                 if (("playnite.desktopapp" in exe_lower or "playnite.fullscreenapp" in exe_lower ) and exe_lower.endswith(".exe")):
                     playnite_running = True
@@ -2130,6 +2148,8 @@ def main_logic():
                     "electronic arts",
                     "steam"
                 ]
+                
+                
 
                 if game_folder.lower() in launcher_list:
                     continue
