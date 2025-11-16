@@ -1911,6 +1911,7 @@ def main_logic():
                     if not any(normalized_exe_path.startswith(path) for path in normalized_allowed_paths):
 ##                        print(f"Prozess {name} mit exe_path {exe_path} ist nicht in allowed_paths.")
                         continue  # Wenn der exe_path nicht in allowed_paths liegt, überspringe diesen Prozess
+                    
                 exe_lower = os.path.basename(exe_path).lower()
                 
                 #Überspringe verschiedene nicht gewollte Exe dateien
@@ -2132,7 +2133,7 @@ def main_logic():
                         kick_game_folder = game_folder
 
 ##                print(f" Debug output game_folder: {game_folder}")
-
+                exe_lower = os.path.basename(exe_path).lower()
                 # launcher excludes
 
                 launcher_list = [
@@ -2177,6 +2178,10 @@ def main_logic():
 
                 if game_folder == "5K":
                     game_folder = "SCP: 5K"
+                    
+                if game_folder == "Ride" and exe_lower in ("ride.exe", "ride-win64-shipping.exe"):
+                    game_folder = "RV There Yet?"
+                    kick_game_folder = "RV There Yet?"
 
                 ##if game_folder == "MarblesOnStream":
                   ##  game_folder = "Marbles On Stream"
