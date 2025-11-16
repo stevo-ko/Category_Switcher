@@ -1,3 +1,24 @@
+## :small_blue_diamond: **v2.0.6-Sv1.0.2 (DE)**
+
+### 🛠️ Kategorie-Matching Fixes
+- 🎮 Fix für **RV There Yet?**
+
+
+## :small_blue_diamond: **v2.0.6-Sv1.0.2 (EN)**
+
+### 🛠️ Category-Matching Fixes
+- 🎮 Fix for **RV There Yet?**
+
+## :small_blue_diamond: **v2.0.5-Sv1.0.2 (DE)**
+### 🛠️ Fixes
+- Spiele Launcher werden nun richtig ignoriert wenn am standart pfad installiert.
+- RuneLite ist jetzt als Old School RuneScape erkannt
+
+## :small_blue_diamond: **v2.0.5-Sv1.0.2 (EN)**
+### 🛠️ Fixes
+- Fixed excluding of default game launchers
+- Fixed runelite matching as Old School RuneScape
+
 ## :small_blue_diamond: **v2.0.1-Sv1.0.1 (DE)**
 
 ### ✨ Features
