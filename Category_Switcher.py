@@ -1843,6 +1843,7 @@ def main_logic():
     # Globale Variable für das aktuell laufende Spiel
     # Global variable for running game
     game_folder = None  # Initialisiert als None / initialised as none
+    connection = None
     category_name = "Just Chatting"
     kick_category_name = "Just Chatting"
     if is_streamerbot_running():
@@ -2233,6 +2234,31 @@ def main_logic():
                     
                 if game_folder == "the witcher 2":
                     game_folder = "The Witcher 2: Assassins of Kings"
+                    
+                if game_folder == "Fears to Fathom - Episode 1":
+                    game_folder = "Fears to Fathom: Home Alone"
+                    kick_game_folder = game_folder
+                    
+                if game_folder == "Fears to Fathom - Episode 2":
+                    game_folder = "Fears to Fathom: Norwood Hithhike"
+                    kick_game_folder = game_folder
+
+                if game_folder == "Fears to Fathom - Episode 3":
+                    game_folder = "Fears to Fathom: Carson House"
+                    kick_game_folder = game_folder
+                    
+                if game_folder == "Fears to Fathom - Episode 4":
+                    game_folder = "Fears to Fathom: Ironbark Lookout"
+                    kick_game_folder = game_folder
+                    
+                if game_folder == "Fears to Fathom - Episode 5":
+                    game_folder = "Fears to Fathom: Woodbury Getaway"
+                    kick_game_folder = game_folder
+                    
+                if game_folder == "Fears to Fathom - Episode 6":
+                    game_folder = "Fears to Fathom: Scratch Creek"
+                    kick_game_folder = game_folder
+                    
                     
                 if "retroarch" in game_folder.lower():
                     game_folder = "Retro"
