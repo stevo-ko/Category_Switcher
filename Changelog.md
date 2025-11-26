@@ -1,3 +1,17 @@
+## :small_blue_diamond: **v2.0.7-Sv1.0.2 (DE)**
+
+### 🛠️ Kategorie-Matching Fixes
+- 🎮 Fix für **Fears of Fathom Serie**
+- 🔧 Fixed **UnboundLocalError Connection**
+
+
+## :small_blue_diamond: **v2.0.7-Sv1.0.2 (EN)**
+
+### 🛠️ Category-Matching Fixes
+- 🎮 Fix for **Fears of Fathom Series**
+- 🔧 Fixed **UnboundLocalError Connection**
+
+
 ## :small_blue_diamond: **v2.0.6-Sv1.0.2 (DE)**
 
 ### 🛠️ Kategorie-Matching Fixes
