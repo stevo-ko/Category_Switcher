@@ -105,6 +105,7 @@ default_config = {
             "bin",
             "binaries",
             "win64",
+            "win64r",
             "win32",
             "system",
             "engine",

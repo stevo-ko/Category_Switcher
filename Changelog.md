@@ -1,3 +1,13 @@
+## :small_blue_diamond: **v2.0.8-Sv1.0.2 (DE)**
+
+### 🛠️ Kategorie-Matching Fixes
+- 🎮 Fix für **Where Winds Meet**
+
+## :small_blue_diamond: **v2.0.8-Sv1.0.2 (EN)**
+
+### 🛠️ Category-Matching Fixes
+- 🎮 Fix for **Where Winds Meet**
+
 ## :small_blue_diamond: **v2.0.7-Sv1.0.2 (DE)**
 
 ### 🛠️ Kategorie-Matching Fixes
