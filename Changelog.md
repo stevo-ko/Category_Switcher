@@ -1,3 +1,13 @@
+## :small_blue_diamond: **v2.0.9-Sv1.0.2 (DE)**
+
+### 🛠️ Kategorie-Matching Fixes
+- 🎮 Fix für **The Exit 8** und **Voices of the Void**
+
+## :small_blue_diamond: **v2.0.9-Sv1.0.2 (EN)**
+
+### 🛠️ Category-Matching Fixes
+- 🎮 Fix for **The Exit 8** and **Voices of the Void**
+
 ## :small_blue_diamond: **v2.0.8-Sv1.0.2 (DE)**
 
 ### 🛠️ Kategorie-Matching Fixes
