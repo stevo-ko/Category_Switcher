@@ -127,7 +127,8 @@ default_config = {
             "EGS",
             "WindowsNoEditor",
             "WindowsNoEditorNoDrivers",
-            "WindowsNoDrivers"
+            "WindowsNoDrivers",
+            "game2"
         ]
     }, 
     "options": {
@@ -2260,6 +2261,14 @@ def main_logic():
                     game_folder = "Fears to Fathom: Scratch Creek"
                     kick_game_folder = game_folder
                     
+                if game_folder == "exit8":
+                    game_folder = "the exit 8"
+                    
+                if game_folder == "votvgame":
+                    game_folder = "Voices of the Void"        
+        
+                if game_folder == "votv":
+                    game_folder = "Voices of the Void"             
                     
                 if "retroarch" in game_folder.lower():
                     game_folder = "Retro"
