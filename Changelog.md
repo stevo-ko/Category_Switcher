@@ -1,3 +1,13 @@
+## :small_blue_diamond: **v2.0.10-Sv1.0.2 (DE)**
+
+### 🛠️ Exe erkennung
+- 🎮 "SteamVR" wird nun nicht mehr gesehen
+
+## :small_blue_diamond: **v2.0.10-Sv1.0.2 (EN)**
+
+### 🛠️ Exe detecting
+- 🎮 "SteamVR" will not get detected anymore
+
 ## :small_blue_diamond: **v2.0.9-Sv1.0.2 (DE)**
 
 ### 🛠️ Kategorie-Matching Fixes
