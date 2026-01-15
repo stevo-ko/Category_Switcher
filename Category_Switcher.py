@@ -1923,6 +1923,9 @@ def main_logic():
                 if "steamapps/common/obs studio" in exe_path.replace("\\", "/").lower():
                     continue
                 
+                if "steamapps/common/steamvr" in exe_path.replace("\\", "/").lower():
+                    continue
+                
                 if "launcher" in exe_lower and exe_lower.endswith(".exe"):
                     continue
                 
