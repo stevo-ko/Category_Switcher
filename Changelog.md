@@ -1,3 +1,13 @@
+## :small_blue_diamond: **v2.0.11-Sv1.0.2 (DE)**
+
+### 🛠️ Kategorie-Matching Fixes
+- 🎮 Fix für **The Elder Scrolls IV: Oblivion Remastered**
+
+## :small_blue_diamond: **v2.0.11-Sv1.0.2 (EN)**
+
+### 🛠️ Category-Matching Fixes
+- 🎮 Fix for **The Elder Scrolls IV: Oblivion Remastered**
+
 ## :small_blue_diamond: **v2.0.10-Sv1.0.2 (DE)**
 
 ### 🛠️ Exe erkennung

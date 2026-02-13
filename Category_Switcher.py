@@ -762,6 +762,7 @@ category_set_already = None
 previous_saved_games = None
 first_save = False
 game_folder = "Nothing"
+found_folder = None
 delay_programming = 0
 delay_general = 0
 delay_playnite = 0
@@ -796,7 +797,7 @@ printed_closed = False
 
 def main_logic():
     
-    global token, CLIENT_ID, token_valid, category_set_already, language, previous_saved_games, first_save, game_folder, config_path, last_modified, message, with_console, known_exe_names, settingspath, update_from_version_below_2, printed_closed
+    global token, CLIENT_ID, token_valid, category_set_already, language, previous_saved_games, first_save, game_folder, config_path, last_modified, message, with_console, known_exe_names, settingspath, update_from_version_below_2, printed_closed, found_folder
     
     ## delays
     global delay_programming, delay_general, delay_playnite, game_stopped, program_stopped
@@ -2027,13 +2028,35 @@ def main_logic():
                 
                 if "cefsharp.browsersubprocess" in exe_lower and exe_lower.endswith(".exe"):
                     continue
+
+                if "upload_profile" in exe_lower and exe_lower.endswith(".exe"):
+                    continue
+
+                if "unisdktools" in exe_lower and exe_lower.endswith(".exe"):
+                    continue
+
+                if "game_graphics_setter" in exe_lower and exe_lower.endswith(".exe"):
+                    continue
+
+                if "capturepro" in exe_lower and exe_lower.endswith(".exe"):
+                    continue
                 
+                if "client_diagnose" in exe_lower and exe_lower.endswith(".exe"):
+                    continue                
+                
+                if "webview_support_browser" in exe_lower and exe_lower.endswith(".exe"):
+                    continue
+
                 if "retroarch" in exe_lower and exe_lower.endswith(".exe"):
                     continue
                     if is_playnite_running() or game_set:
                         continue
 
-
+                if exe_lower == "render.exe":
+                    continue
+                
+                if exe_lower == "marvel-win64-shipping.exe":
+                    continue
                                     
                 if (("playnite.desktopapp" in exe_lower or "playnite.fullscreenapp" in exe_lower ) and exe_lower.endswith(".exe")):
                     playnite_running = True
@@ -2137,6 +2160,7 @@ def main_logic():
                     if not game_set:
                         game_folder = os.path.basename(root_folder)
                         kick_game_folder = game_folder
+                        found_folder = game_folder
 
 ##                print(f" Debug output game_folder: {game_folder}")
                 exe_lower = os.path.basename(exe_path).lower()
@@ -2169,21 +2193,26 @@ def main_logic():
                 # Edge cases setting game_folder forceful to get twitch match            
                 if "Intergrade" in game_folder:
                     game_folder = remove_intergrade_from_folder(game_folder)
+                    kick_game_folder = game_folder
 
                 if is_ue_or_known_programming_folder(game_folder.lower()):
                     game_folder = "Software and game development"                     
                 
                 if game_folder in gta5_variants:
                     game_folder = "Grand Theft Auto V"
+                    kick_game_folder = game_folder
 
                 if game_folder in gta4_variants:
                     game_folder = "Grand Theft Auto IV"
+                    kick_game_folder = game_folder
 
                 if game_folder == "Mass Effect Ultimate Edition":
                     game_folder = "Mass Effect"
+                    kick_game_folder = game_folder
 
                 if game_folder == "5K":
                     game_folder = "SCP: 5K"
+                    kick_game_folder = game_folder
                     
                 if game_folder == "Ride" and exe_lower in ("ride.exe", "ride-win64-shipping.exe"):
                     game_folder = "RV There Yet?"
@@ -2196,39 +2225,51 @@ def main_logic():
 
                 if "no mans sky" in game_folder.lower():
                     game_folder = "No Man's Sky"
+                    kick_game_folder = game_folder
                     
                 if "the jackbox party" in game_folder.lower():
                     game_folder = "Jackbox Party Packs"
+                    kick_game_folder = game_folder
 
                 if "only up" in game_folder.lower():
                     game_folder = "Only Up!"
+                    kick_game_folder = game_folder
 
                 if "palworld" in game_folder.lower():
                     game_folder = "Palworld"
+                    kick_game_folder = game_folder
 
                 if "silent hill 2" in game_folder.lower():
                     game_folder = "Silent Hill 2"
+                    kick_game_folder = game_folder
                                 
                 if game_folder.lower() == "repo":
                     game_folder = "R.E.P.O."
+                    kick_game_folder = game_folder
                     
                 if game_folder.lower() == "beast management":
                     game_folder = "Project Unknown"
+                    kick_game_folder = game_folder
 
                 if game_folder.lower() == "sololv":
                     game_folder = "Solo Leveling: Arise"
+                    kick_game_folder = game_folder
                     
                 if game_folder.lower() == "abinfinite":
                     game_folder = "Arena Breakout: Infinite"
+                    kick_game_folder = game_folder
                     
                 if "world of warcraft" in game_folder.lower():
                     game_folder = "World of Warcraft"
+                    kick_game_folder = game_folder
 
                 if "spyro" in game_folder.lower():
                     game_folder = "Spyro The Dragon"
+                    kick_game_folder = game_folder
 
                 if "final fantasy xiv" in game_folder.lower():
                     game_folder = "Final Fantasy XIV Online"
+                    kick_game_folder = game_folder
 
                 if game_folder == "Counter-Strike Global Offensive":
                     game_folder = "Counter-Strike"
@@ -2236,6 +2277,7 @@ def main_logic():
                     
                 if game_folder == "rocketleague":
                     game_folder = "Rocket League"
+                    kick_game_folder = game_folder
                     
                 if game_folder == "the witcher 2":
                     game_folder = "The Witcher 2: Assassins of Kings"
@@ -2264,14 +2306,21 @@ def main_logic():
                     game_folder = "Fears to Fathom: Scratch Creek"
                     kick_game_folder = game_folder
                     
-                if game_folder == "exit8":
+                if game_folder.lower() == "exit8":
                     game_folder = "the exit 8"
+                    kick_game_folder = game_folder
                     
-                if game_folder == "votvgame":
-                    game_folder = "Voices of the Void"        
+                if game_folder.lower() == "votvgame":
+                    game_folder = "Voices of the Void"
+                    kick_game_folder = game_folder        
         
                 if game_folder == "votv":
-                    game_folder = "Voices of the Void"             
+                    game_folder = "Voices of the Void"
+                    kick_game_folder = game_folder
+                    
+                if game_folder == "Oblivion Remastered":
+                    game_folder = "The Elder Scrolls IV: Oblivion Remastered"
+                    kick_game_folder = game_folder
                     
                 if "retroarch" in game_folder.lower():
                     game_folder = "Retro"
@@ -2279,7 +2328,7 @@ def main_logic():
 
                 if "runelite" in game_folder.lower():
                     game_folder = "Old School RuneScape"
-                    kick_game_folder = "Old School RuneScape"
+                    kick_game_folder = game_folder
 
                 # Entfernt alle gängigen Test-Endungen wie Demo, Alpha, Beta, Test (mit Klammern, Bindestrichen, Version etc.)
                 # Liste möglicher Suffixe
