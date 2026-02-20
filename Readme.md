@@ -52,6 +52,7 @@
 
 - Download the **latest** release.
 - Extract **Category_Switcher.zip**
+- Try to open **Category_Switcher.exe** as Windows often blocks the first execution of the exe, and this causes problems later on. Could also be necessary after an update.
 - Import the action to **Streamer.bot** with the import code inside **Category_Switcher.stevo** or using the file itself.
 - Go to **Streamer.bot → Servers/Clients → HTTP Server**.
 - Ensure the **HTTP server** is enabled and started, you can change port and adress as you like before starting the server.
@@ -106,6 +107,7 @@
 
 - Lade das **neueste Release** herunter
 - Entpacke **Category_Switcher.zip**.
+- Versuche **Category_Switcher.exe** zu öffnen, Windows blockiert oftmals die erste Ausführung der exe, was zu Problemen führt im weiteren Verlauf. Könnte auch nach einem Update notwendig sein.
 - Importiere die Action in **Streamer.bot** mithilfe des Import-Codes in **Category_Switcher.stevo** oder über die Datei selbst.   
 - Gehe zu **Streamer.bot → Servers/Clients → HTTP Server**. 
 - Stelle sicher, dass der **HTTP-Server** aktiviert und gestartet ist. Du kannst den Port und die Adresse nach Belieben ändern, bevor du den Server startest. 
