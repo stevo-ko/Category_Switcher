@@ -170,7 +170,7 @@
   "Streamer_bot":
   {
     "Label": "Streamer.bot URL and Port",
-    "Description": "Streamer.bot HTTP Server URL and Port, only change if you also change it in the Streamer.bot Settings!!"
+    "Description": "Streamer.bot HTTP Server URL and Port.\nOnly change if you also change it in the Streamer.bot Settings!!"
   },
 
   "Watch_Bot":
