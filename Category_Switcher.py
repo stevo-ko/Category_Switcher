@@ -21,6 +21,7 @@ import json
 import re
 import sys
 import ctypes
+from ctypes import wintypes
 import subprocess
 import logging
 import threading
@@ -30,6 +31,9 @@ import io
 import contextlib
 import asyncio
 import shutil
+import hashlib
+import struct
+
 
 default_config = {
     "twitch": {
@@ -331,8 +335,7 @@ def backup_critical_files():
         #else:
             #print(f"Datei nicht gefunden: {source_file}")
            
-backup_critical_files()
-        
+backup_critical_files()       
 
 show_console = bool(config["options"]["show_console"])
 setting_language = config["options"]["language"]
@@ -366,7 +369,7 @@ else:
 ## Prüfe ob module importiert werden können wenn nicht installiere sie
 ## Check if modules can be imported otherwise install them
 
-modules = ["rapidfuzz", "requests", "psutil", "pydantic", "PyQt5", "watchdog"]
+modules = ["rapidfuzz", "requests", "psutil", "pydantic", "PyQt5", "watchdog", "toasted", "PIL"]
 
 for module in modules:
     try:
@@ -380,22 +383,29 @@ for module in modules:
 
 # Jetzt die Module importieren (nach der Installation)
 # After install import modules
+from numpy import stack
 from rapidfuzz import fuzz
 import requests
 import psutil
 from pydantic import BaseModel
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QMessageBox, QLabel
-from PyQt5.QtCore import QTimer, QMetaObject
-from PyQt5.QtGui import QFont, QColor, QPalette, QIcon
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QLineEdit, QPushButton, QMessageBox, QLabel, QDialog, QLabel, QFrame, QScrollArea, QSizePolicy, QStackedWidget
+from PyQt5.QtCore import QTimer, QMetaObject, QObject, pyqtSignal, Qt
+from PyQt5.QtGui import QFont, QColor, QPalette, QIcon, QCursor, QPixmap
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from toasted import Toast, Text, Progress, ToastTextStyle, ToastTextAlign, ToastDuration, ToastDismissReason, ToastScenario, ToastImagePlacement, ToastNotificationMode, ToastSound, Button, ToastButtonStyle, Image, ToastResult
+from PIL import Image as PILImage
 
+class _ChangelogSignal(QObject):
+    open_changelog = pyqtSignal(str, str, str)
 
-def get_resource_path_old(relative_path):
-    """ Holt den absoluten Pfad zu Ressourcen, egal ob als .py oder .exe ausgeführt """
-    if hasattr(sys, '_MEIPASS'):
-        return os.path.join(sys._MEIPASS, "Assets", relative_path)
-    return os.path.join("Assets", relative_path)
+_changelog_signal = _ChangelogSignal()
+
+class _GuiSignals(QObject):
+    show_console_window = pyqtSignal()
+    hide_console_window = pyqtSignal()
+
+_gui_signals = _GuiSignals()
 
 def get_resource_path(relative_path):
     """Pfad zu Ressourcen im _internal/Assets Ordner neben der exe/py"""
@@ -407,10 +417,1340 @@ def get_resource_path(relative_path):
         base_path = os.path.dirname(os.path.abspath(__file__))
 
     return os.path.join(base_path, "_internal", "Assets", relative_path)
+# Dummy für Test
+CHANGELOG_DUMMY = """
+ 
+## (DE)
+- Done a few fixes not worthy of mentioning.. or i forgot what it was 
 
+## (EN)
+- Done a few fixes not worthy of mentioning.. or i forgot what it was 
+
+"""
+
+def _open_changelog_window(content: str, current_version: str, lang_suffix: str):
+    try:
+        app_instance = QApplication.instance()
+        if not app_instance:
+            app_instance = QApplication(sys.argv)
+
+        dialog = QDialog()
+        dialog.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        dialog.setWindowTitle("Matchfixes Changelog")
+        icon_path = get_resource_path("icon.ico")
+        dialog.setWindowIcon(QIcon(icon_path))
+        dialog.setAttribute(Qt.WA_TranslucentBackground, True)
+        dialog.setAttribute(Qt.WA_QuitOnClose, False)
+        dialog.resize(700, 480)
+
+        screen = app_instance.primaryScreen().geometry()
+        dialog.move(
+            (screen.width()  - dialog.width())  // 2,
+            (screen.height() - dialog.height()) // 2,
+        )
+
+        # ── Parse markdown ─────────────────────────────────
+        fallback_suffix = "(EN)" if lang_suffix == "(DE)" else "(DE)"
+
+        raw_blocks: dict = {}
+        order: list = []
+        cur_key = None
+        cur_bullets = []
+        for line in content.splitlines():
+            if line.startswith("## "):
+                if cur_key is not None:
+                    raw_blocks[cur_key] = cur_bullets
+                cur_key = line[3:].strip()
+                cur_bullets = []
+                if cur_key not in order:
+                    order.append(cur_key)
+            elif line.startswith(("- ", "* ")) and cur_key is not None:
+                cur_bullets.append(line[2:].strip())
+        if cur_key is not None:
+            raw_blocks[cur_key] = cur_bullets
+
+        def _bullets_for(bare: str) -> list:
+            for key in [f"{bare} {lang_suffix}", f"{bare} {fallback_suffix}", bare]:
+                if key in raw_blocks:
+                    return raw_blocks[key]
+            return []
+
+        seen: list = []
+        parsed_versions: list = []
+        for key in order:
+            bare = re.sub(r'\s*\((DE|EN)\)\s*$', '', key).strip()
+            if bare in seen:
+                continue
+            seen.append(bare)
+            parsed_versions.append((bare, _bullets_for(bare)))
+
+        if not parsed_versions:
+            parsed_versions = [(current_version, [
+                "Keine Einträge gefunden." if "(DE)" in lang_suffix else "No entries found."
+            ])]
+
+        latest_entry = next(
+            (e for e in parsed_versions if e[0] == current_version),
+            parsed_versions[0]
+        )
+        latest_ver     = latest_entry[0]
+        latest_bullets = latest_entry[1] or [
+            "Keine Einträge." if "(DE)" in lang_suffix else "No entries."
+        ]
+        older_versions = [e for e in parsed_versions if e[0] != latest_ver]
+
+        # ── Outer container ────────────────────────────────
+        outer = QFrame(dialog)
+        outer.setObjectName("outerFrame")
+        outer.setGeometry(0, 0, 700, 480)
+        outer.setStyleSheet("""
+            #outerFrame {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
+                    stop:0 #080F13, stop:0.25 #0C1C2A, stop:0.5 #132E40,
+                    stop:0.72 #1A3D52, stop:0.88 #204A60, stop:1 #265468);
+                border: 1px solid #28AEED;
+                border-radius: 14px;
+            }
+        """)
+
+        main_layout = QVBoxLayout(outer)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+
+        # ── Drag ───────────────────────────────────────────
+        _drag_pos = [None]
+        def mousePressEvent(e):
+            if e.button() == Qt.LeftButton:
+                _drag_pos[0] = e.globalPos() - dialog.frameGeometry().topLeft()
+        def mouseMoveEvent(e):
+            if e.buttons() == Qt.LeftButton and _drag_pos[0]:
+                dialog.move(e.globalPos() - _drag_pos[0])
+        def mouseReleaseEvent(e):
+            _drag_pos[0] = None
+
+        # ── Titlebar ───────────────────────────────────────
+        titlebar = QFrame()
+        titlebar.setObjectName("titlebar")
+        titlebar.setFixedHeight(38)
+        titlebar.setStyleSheet("""
+            #titlebar {
+                background: transparent;
+                border-bottom: 1px solid #1D3545;
+                border-top-left-radius: 14px;
+                border-top-right-radius: 14px;
+            }
+        """)
+        titlebar.mousePressEvent   = mousePressEvent
+        titlebar.mouseMoveEvent    = mouseMoveEvent
+        titlebar.mouseReleaseEvent = mouseReleaseEvent
+
+        tb_layout = QHBoxLayout(titlebar)
+        tb_layout.setContentsMargins(14, 0, 14, 0)
+        tb_layout.setSpacing(6)
+
+        def make_dot(idle_bg, idle_border, hover_bg, cmd):
+            btn = QPushButton()
+            btn.setFixedSize(12, 12)
+            btn.setCursor(QCursor(Qt.PointingHandCursor))
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background: {idle_bg}; border: 1px solid {idle_border}; border-radius: 6px;
+                }}
+                QPushButton:hover {{ background: {hover_bg}; border-color: {hover_bg}; }}
+            """)
+            btn.clicked.connect(cmd)
+            return btn
+           
+        icon_lbl = QLabel()
+        px = QPixmap(get_resource_path("icon.ico"))
+        icon_lbl.setPixmap(px.scaled(14, 14, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        icon_lbl.setStyleSheet("background: transparent; border: none;")
+        tb_layout.addWidget(icon_lbl)
+
+        t1 = QLabel("Matchfix Liste" if "(DE)" in lang_suffix else "Matchfix List")
+        t1.setFont(QFont("Segoe UI", 10))
+        t1.setStyleSheet("color: #bfcfd6; background: transparent; border: none;")
+        tb_layout.addWidget(t1)
+
+        t2 = QLabel("— Changelog")
+        t2.setFont(QFont("Segoe UI", 10))
+        t2.setStyleSheet("color: #5A8A9A; background: transparent; border: none;")
+        tb_layout.addWidget(t2)
+        tb_layout.addStretch()
+
+        tb_badge = QLabel(f" {latest_ver} latest ")
+        tb_badge.setFont(QFont("Cascadia Code", 9, QFont.Bold))
+        tb_badge.setStyleSheet("""
+            color: #28AEED; background: rgba(40,174,237,0.10);
+            border: 1px solid rgba(40,174,237,0.25);
+            border-radius: 20px; padding: 1px 4px;
+        """)
+        #tb_layout.addWidget(tb_badge)
+        tb_sep = QFrame(); tb_sep.setFixedSize(1, 14)
+        tb_sep.setStyleSheet("background: #1D3545; border: none;")
+        tb_layout.addWidget(tb_sep)
+        tb_layout.addSpacing(4)
+        tb_layout.addSpacing(6)
+        tb_layout.addWidget(make_dot("#1e5a7a", "#1e5a7a", "#28AEED", dialog.showMinimized))
+        tb_layout.addWidget(make_dot("#7a1f1f", "#7a1f1f", "#E81123", dialog.close))
+        main_layout.addWidget(titlebar)
+
+        # ── Accent line ────────────────────────────────────
+        accent = QFrame()
+        accent.setFixedHeight(1)
+        accent.setStyleSheet("""
+            background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                stop:0 #28AEED, stop:0.5 #00D4E8, stop:1 #1A6A9A);
+            border: none;
+        """)
+        main_layout.addWidget(accent)
+
+        # ── Latest version block ───────────────────────────
+        latest_frame = QFrame()
+        latest_frame.setStyleSheet("background: transparent;")
+        lf_layout = QVBoxLayout(latest_frame)
+        lf_layout.setContentsMargins(18, 14, 24, 0)
+        lf_layout.setSpacing(0)
+
+        hdr_row = QWidget()
+        hdr_row.setFixedHeight(26)
+        hdr_row.setStyleSheet("background: transparent;")
+        hdr_rl = QHBoxLayout(hdr_row)
+        hdr_rl.setContentsMargins(0, 0, 0, 0)
+        hdr_rl.setSpacing(8)
+        hdr_rl.setAlignment(Qt.AlignVCenter)
+
+        dot_bar = QFrame()
+        dot_bar.setObjectName("dotBar")
+        dot_bar.setFixedSize(2, 20)
+        dot_bar.setStyleSheet("""
+            #dotBar {
+                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                    stop:0 #1A6A9A, stop:0.5 #28AEED, stop:1 #1A6A9A);
+                border-radius: 1px; border: none;
+            }
+        """)
+        hdr_rl.addWidget(dot_bar)
+
+        ver_lbl = QLabel(latest_ver)
+        ver_lbl.setFont(QFont("Cascadia Code", 14, QFont.Bold))
+        ver_lbl.setStyleSheet("color: #28AEED; background: transparent; border: none;")
+        hdr_rl.addWidget(ver_lbl)
+
+        latest_tag = QLabel(" latest ")
+        latest_tag.setFont(QFont("Cascadia Code", 9, QFont.Bold))
+        latest_tag.setFixedHeight(18)
+        latest_tag.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        latest_tag.setStyleSheet("""
+            color: #28AEED; background: rgba(40,174,237,0.10);
+            border: 1px solid rgba(40,174,237,0.20);
+            border-radius: 4px; padding: 0px 4px;
+        """)
+        hdr_rl.addWidget(latest_tag)
+
+        fade_line = QFrame()
+        fade_line.setFixedHeight(1)
+        fade_line.setStyleSheet("""
+            background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                stop:0 rgba(40,174,237,0.4), stop:1 transparent);
+            border: none;
+        """)
+        hdr_rl.addWidget(fade_line, 1)
+        
+        lf_layout.addWidget(hdr_row)
+
+        sec_line = QFrame()
+        sec_line.setFixedHeight(1)
+        sec_line.setStyleSheet("""
+            background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                stop:0 rgba(40,174,237,0.5), stop:0.6 rgba(40,174,237,0.12), stop:1 transparent);
+            border: none; margin: 4px 0 6px;
+        """)
+        lf_layout.addWidget(sec_line)
+        lf_layout.addSpacing(10)
+
+        # ── Bullet helpers ─────────────────────────────────
+        def _make_bullet_row(raw, last=False):
+            raw_html = re.sub(
+                r'`([^`]+)`',
+                r'<span style="font-family:Cascadia Code;font-size:11px;color:#28AEED;'
+                r'background:rgba(40,174,237,0.08);border:1px solid rgba(40,174,237,0.15);'
+                r'border-radius:3px;padding:1px 5px;">\1</span>',
+                raw
+            )
+            raw_html = re.sub(
+                r'(→|->)',
+                r'<span style="color:#28AEED;margin:0 2px;">→</span>',
+                raw_html
+            )
+            full_html = (
+                f'<table cellspacing="0" cellpadding="0"><tr>'
+                f'<td valign="top" style="padding-top:4px;padding-right:8px;width:12px;">'
+                f'<span style="color:#28AEED;font-size:8px;">●</span></td>'
+                f'<td valign="top"><span style="color:#9DD4E8;font-size:12px;">{raw_html}</span></td>'
+                f'</tr></table>'
+            )
+            border_bottom = "none" if last else "1px solid #0e1c28"
+            row = QFrame()
+            row.setObjectName("bRow")
+            row.setStyleSheet(f"#bRow {{ background: transparent; border-bottom: {border_bottom}; }}")
+            row.setMouseTracking(True)
+            row.enterEvent = lambda e, r=row, b=border_bottom: r.setStyleSheet(
+                f"#bRow {{ background: #1a2e42; border-bottom: {b}; }}"
+            )
+            row.leaveEvent = lambda e, r=row, b=border_bottom: r.setStyleSheet(
+                f"#bRow {{ background: transparent; border-bottom: {b}; }}"
+            )
+            rl = QHBoxLayout(row)
+            rl.setContentsMargins(10, 6, 14, 6)
+            rl.setSpacing(0)
+            txt = QLabel(full_html)
+            txt.setFont(QFont("Segoe UI", 10))
+            txt.setStyleSheet("background: transparent; border: none; padding: 0;")
+            txt.setWordWrap(True)
+            txt.setTextFormat(Qt.RichText)
+            txt.setTextInteractionFlags(Qt.TextSelectableByMouse)
+            txt.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+            rl.addWidget(txt)
+            return row
+
+        def make_entry_card(bullets):
+            card = QFrame()
+            card.setObjectName("entryCard")
+            card.setStyleSheet("""
+                #entryCard {
+                    background: #162535;
+                    border: 1px solid #1D3545;
+                    border-radius: 10px;
+                }
+            """)
+            cl = QVBoxLayout(card)
+            cl.setContentsMargins(0, 0, 0, 0)
+            cl.setSpacing(0)
+            for i, raw in enumerate(bullets):
+                cl.addWidget(_make_bullet_row(raw, last=(i == len(bullets) - 1)))
+                
+            return card
+        
+        latest_scroll = QScrollArea()
+        latest_scroll.setViewportMargins(0, 0, 5, 0)
+        latest_scroll.viewport().setStyleSheet("background: transparent;")
+        latest_scroll.setWidgetResizable(True)
+        latest_scroll.setWidget(make_entry_card(latest_bullets))
+        latest_scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        latest_scroll.setStyleSheet("""
+            QScrollArea { border: none; background: transparent; }
+            QScrollArea > QWidget > QWidget { background: transparent; }
+            QScrollBar:vertical {
+                background: transparent; width: 10px;
+                margin: 4px 2px 4px 0px;
+            }
+            QScrollBar::handle:vertical {
+                background: #4a9aba; border-radius: 3px; min-height: 24px;
+            }
+            QScrollBar::handle:vertical:hover { background: #28AEED; }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
+        """)
+        lf_layout.addWidget(latest_scroll)
+        main_layout.addWidget(latest_frame)
+        
+        main_layout.addStretch()
+
+        # ── Older versions section ─────────────────────────
+        if older_versions:
+            lbl_show   = "Ältere Versionen anzeigen"   if "(DE)" in lang_suffix else "Show older versions"
+            lbl_hide   = "Zurück zur neuen Version" if "(DE)" in lang_suffix else "Back to latest version"
+            lbl_search = "Suche nach Version…"      if "(DE)" in lang_suffix else "Search for version…"
+            lbl_back   = "Zurück zur Übersicht"     if "(DE)" in lang_suffix else "Back to overview"
+
+            # ── Toggle row im main_layout (collapsed state) ─
+            toggle_frame_main = QFrame()
+            toggle_frame_main.setStyleSheet("background: transparent;")
+            tfm_layout = QHBoxLayout(toggle_frame_main)
+            tfm_layout.setContentsMargins(18, 12, 18, 8)
+            tfm_layout.setSpacing(8)
+            
+            toggle_btn_main = QPushButton("▾")
+            toggle_btn_main.setObjectName("toggleBtn")
+            toggle_btn_main.setFixedSize(18, 18)
+            toggle_btn_main.setStyleSheet("""
+                #toggleBtn {
+                    background: #0D1E2C; border: 1px solid #1D3545;
+                    border-radius: 4px; color: #3A6070; font-size: 9px;
+                }
+            """)
+            toggle_btn_main.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+            
+            lbl_weitere = "weitere" if "(DE)" in lang_suffix else "more"
+            toggle_lbl_main = QLabel(f"{lbl_show}  ({len(older_versions)} {lbl_weitere})")
+            toggle_lbl_main.setFont(QFont("Segoe UI", 10))
+            toggle_lbl_main.setStyleSheet("color: #3A6070; background: transparent; border: none;")
+            toggle_lbl_main.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+            tc_main = QWidget()
+            tc_main.setStyleSheet("background: transparent;")
+            tc_main.setCursor(QCursor(Qt.PointingHandCursor))
+            tc_l = QHBoxLayout(tc_main)
+            tc_l.setContentsMargins(0, 0, 0, 0)
+            tc_l.setSpacing(8)
+            tc_l.addWidget(toggle_btn_main)
+            tc_l.addWidget(toggle_lbl_main)
+
+            def _tc_main_enter(e):
+                toggle_btn_main.setStyleSheet("#toggleBtn { background: rgba(40,174,237,0.1); border: 1px solid rgba(40,174,237,0.3); border-radius: 4px; color: #28AEED; font-size: 9px; }")
+                toggle_lbl_main.setStyleSheet("color: #28AEED; background: transparent; border: none;")
+            def _tc_main_leave(e):
+                toggle_btn_main.setStyleSheet("#toggleBtn { background: #0D1E2C; border: 1px solid #1D3545; border-radius: 4px; color: #3A6070; font-size: 9px; }")
+                toggle_lbl_main.setStyleSheet("color: #3A6070; background: transparent; border: none;")
+            tc_main.enterEvent = _tc_main_enter
+            tc_main.leaveEvent = _tc_main_leave
+            tc_main.mousePressEvent = lambda e: expand()
+
+            tl_line = QFrame()
+            tl_line.setFixedHeight(1)
+            tl_line.setStyleSheet("background: #1D3545; border: none;")
+
+            tfm_layout.addWidget(tc_main)
+            tfm_layout.addWidget(tl_line, 1)
+            main_layout.addWidget(toggle_frame_main)
+
+            # ── Overlay (expanded state) ────────────────────
+            # Direkt Kind von outer, außerhalb des Layouts
+            # Startet nach dem Accent-Streifen (y=40), endet über dem Footer
+            OVERLAY_Y = 40   # titlebar(38) + accent(1) + 1px Puffer
+            FOOTER_H  = 45   # footer(44) + sep(1)
+
+            overlay = QFrame(outer)
+            overlay.setObjectName("overlay")
+            overlay.setStyleSheet("""
+                #overlay {
+                    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
+                        stop:0 #080F13, stop:0.25 #0C1C2A, stop:0.5 #132E40,
+                        stop:0.72 #1A3D52, stop:0.88 #204A60, stop:1 #265468);
+                    
+                }
+            """)
+            overlay.setVisible(False)
+
+            ov_layout = QVBoxLayout(overlay)
+            ov_layout.setContentsMargins(0, 0, 0, 0)
+            ov_layout.setSpacing(0)
+
+            # Toggle row oben im Overlay
+            toggle_frame_ov = QFrame()
+            toggle_frame_ov.setStyleSheet("background: transparent;")
+            tfo_layout = QHBoxLayout(toggle_frame_ov)
+            tfo_layout.setContentsMargins(18, 10, 18, 6)
+            tfo_layout.setSpacing(8)
+
+            toggle_btn_ov = QPushButton("▴")
+            toggle_btn_ov.setObjectName("toggleBtnOv")
+            toggle_btn_ov.setFixedSize(18, 18)
+            toggle_btn_ov.setStyleSheet("""
+                #toggleBtnOv {
+                    background: #0D1E2C; border: 1px solid #1D3545;
+                    border-radius: 4px; color: #3A6070; font-size: 9px;
+                }
+            """)
+            toggle_btn_ov.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+            toggle_lbl_ov = QLabel(lbl_hide)
+            toggle_lbl_ov.setFont(QFont("Segoe UI", 10))
+            toggle_lbl_ov.setStyleSheet("color: #3A6070; background: transparent; border: none;")
+            toggle_lbl_ov.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+
+            tc_ov = QWidget()
+            tc_ov.setStyleSheet("background: transparent;")
+            tc_ov.setCursor(QCursor(Qt.PointingHandCursor))
+            tc_ov_l = QHBoxLayout(tc_ov)
+            tc_ov_l.setContentsMargins(0, 0, 0, 0)
+            tc_ov_l.setSpacing(8)
+            tc_ov_l.addWidget(toggle_btn_ov)
+            tc_ov_l.addWidget(toggle_lbl_ov)
+
+            def _tc_ov_enter(e):
+                toggle_btn_ov.setStyleSheet("#toggleBtnOv { background: rgba(40,174,237,0.1); border: 1px solid rgba(40,174,237,0.3); border-radius: 4px; color: #28AEED; font-size: 9px; }")
+                toggle_lbl_ov.setStyleSheet("color: #28AEED; background: transparent; border: none;")
+            def _tc_ov_leave(e):
+                toggle_btn_ov.setStyleSheet("#toggleBtnOv { background: #0D1E2C; border: 1px solid #1D3545; border-radius: 4px; color: #3A6070; font-size: 9px; }")
+                toggle_lbl_ov.setStyleSheet("color: #3A6070; background: transparent; border: none;")
+            tc_ov.enterEvent = _tc_ov_enter
+            tc_ov.leaveEvent = _tc_ov_leave
+            tc_ov.mousePressEvent = lambda e: collapse()
+
+            to_line = QFrame()
+            to_line.setFixedHeight(1)
+            to_line.setStyleSheet("background: #1D3545; border: none;")
+
+            tfo_layout.addWidget(tc_ov)
+            tfo_layout.addWidget(to_line, 1)
+            ov_layout.addWidget(toggle_frame_ov)
+            ov_layout.setSpacing(8)
+
+            # Search bar
+            search_frame = QFrame()
+            search_frame.setFixedHeight(34)
+            search_frame.setStyleSheet("background: transparent;")
+            sf_layout = QHBoxLayout(search_frame)
+            sf_layout.setContentsMargins(18, 0, 18, 4)
+
+            search_box = QFrame()
+            search_box.setObjectName("sBox")
+            search_box.setStyleSheet(
+                "#sBox { background: #0D1E2C; border: 1px solid #1D3545; border-radius: 8px; }"
+            )
+
+            sb_l = QHBoxLayout(search_box)
+            sb_l.setContentsMargins(10, 0, 10, 0)
+            sb_l.setSpacing(6)
+
+            s_icon = QLabel("⌕")
+            s_icon.setFont(QFont("Segoe UI", 11))
+            s_icon.setStyleSheet("color: #2d4455; background: transparent; border: none;")
+            sb_l.addWidget(s_icon)
+
+            search_input = QLineEdit()
+            search_input.setPlaceholderText(lbl_search)
+            search_input.setFont(QFont("Segoe UI", 10))
+            search_input.setStyleSheet(
+                "QLineEdit { background: transparent; border: none; color: #9DD4E8; padding: 0; }"
+            )
+            def _on_focus_in(e):
+                search_box.setStyleSheet(
+                    "#sBox { background: #0D1E2C; border: 1px solid #28AEED; border-radius: 8px; }"
+                )
+                QLineEdit.focusInEvent(search_input, e)
+
+            def _on_focus_out(e):
+                search_box.setStyleSheet(
+                    "#sBox { background: #0D1E2C; border: 1px solid #1D3545; border-radius: 8px; }"
+                )
+                QLineEdit.focusOutEvent(search_input, e)
+
+            def _on_enter(e):
+                if not search_input.hasFocus():
+                    search_box.setStyleSheet(
+                        "#sBox { background: #0D1E2C; border: 1px solid #28456A; border-radius: 8px; }"
+                    )
+
+            def _on_leave(e):
+                if not search_input.hasFocus():
+                    search_box.setStyleSheet(
+                        "#sBox { background: #0D1E2C; border: 1px solid #1D3545; border-radius: 8px; }"
+                    )
+
+            search_input.focusInEvent  = _on_focus_in
+            search_input.focusOutEvent = _on_focus_out
+            search_box.enterEvent      = _on_enter
+            search_box.leaveEvent      = _on_leave
+            sb_l.addWidget(search_input, 1)
+            sf_layout.addWidget(search_box)
+            ov_layout.addWidget(search_frame)
+            
+            detail_header = QFrame()
+            detail_header.setStyleSheet("background: transparent;")
+            dh_layout = QVBoxLayout(detail_header)
+            dh_layout.setContentsMargins(18, 6, 18, 0)
+            dh_layout.setSpacing(0)
+            detail_header.setVisible(False)
+            
+            ov_layout.addWidget(detail_header)
+
+            # Scroll
+            scroll = QScrollArea()
+            scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+            scroll.setWidgetResizable(True)
+            scroll.setViewportMargins(0, 0, 5, 0)
+            scroll.setStyleSheet("""
+                QScrollArea { border: none; background: transparent; }
+                QScrollArea > QWidget > QWidget { background: transparent; }
+                QScrollBar:vertical {
+                    background: transparent; width: 10px;
+                    margin: 4px 5px 4px 0px;
+                }
+                QScrollBar::handle:vertical {
+                    background: #4a9aba; border-radius: 3px; min-height: 24px;
+                }
+                QScrollBar::handle:vertical:hover { background: #28AEED; }
+                QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0; }
+                QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }
+            """)
+            ov_layout.addWidget(scroll)
+
+            stack = QStackedWidget()
+            stack.setStyleSheet("background: transparent;")
+
+            # Page 0: Versions list
+            older_widget = QWidget()
+            older_widget.setStyleSheet("background: transparent;")
+            older_widget.setMaximumWidth(694)
+            older_layout = QVBoxLayout(older_widget)
+            older_layout.setContentsMargins(18, 6, 18, 6)
+            older_layout.setSpacing(0)
+
+            all_older_rows = []
+            for ver, bullets in older_versions:
+                row_frame = QFrame()
+                row_frame.setObjectName("olderRow")
+                row_frame.setCursor(QCursor(Qt.PointingHandCursor))
+                row_frame.setStyleSheet(
+                    "#olderRow { background: transparent; border-bottom: 1px solid #0e1c28; }"
+                )
+                row_frame.setMouseTracking(True)
+                row_frame.enterEvent = lambda e, r=row_frame: r.setStyleSheet(
+                    "#olderRow { background: rgba(40,174,237,0.04); border-bottom: 1px solid #0e1c28; }"
+                )
+                row_frame.leaveEvent = lambda e, r=row_frame: r.setStyleSheet(
+                    "#olderRow { background: transparent; border-bottom: 1px solid #0e1c28; }"
+                )
+                row_hl = QHBoxLayout(row_frame)
+                row_hl.setContentsMargins(4, 7, 8, 7)
+                row_hl.setSpacing(10)
+
+                ver_tag = QLabel(ver)
+                ver_tag.setFont(QFont("Cascadia Code", 11, QFont.Bold))
+                ver_tag.setStyleSheet("color: #28AEED; background: transparent; border: none;")
+                ver_tag.setFixedWidth(55)
+
+                preview = bullets[0] if bullets else "—"
+                if len(bullets) > 1:
+                    preview += f"  (+{len(bullets)-1})"
+                prev_lbl = QLabel(preview)
+                prev_lbl.setFont(QFont("Segoe UI", 10))
+                prev_lbl.setStyleSheet("color: #3A6070; background: transparent; border: none;")
+
+                arrow_lbl = QLabel("›")
+                arrow_lbl.setFont(QFont("Segoe UI", 12))
+                arrow_lbl.setStyleSheet("color: #1D3545; background: transparent; border: none;")
+
+                row_hl.addWidget(ver_tag)
+                row_hl.addWidget(prev_lbl, 1)
+                row_hl.addWidget(arrow_lbl)
+
+                older_layout.addWidget(row_frame)
+                search_text = (preview + " " + " ".join(bullets)).lower()
+                all_older_rows.append((ver, search_text, row_frame))
+                row_frame.mousePressEvent = lambda e, v=ver, b=bullets: show_detail(v, b)
+
+            older_layout.addStretch()
+            stack.addWidget(older_widget)   # index 0
+
+            # Page 1: Detail view
+            detail_widget = QWidget()
+            detail_widget.setStyleSheet("background: transparent;")
+            detail_widget.setMaximumWidth(694)
+            detail_layout = QVBoxLayout(detail_widget)
+            detail_layout.setContentsMargins(18, 0, 0, 0)
+            detail_layout.setSpacing(0)
+            stack.addWidget(detail_widget)  # index 1
+
+            scroll.setWidget(stack)
+            
+            # ── show_detail ────────────────────────────────
+            def show_detail(ver, bullets):
+                # dh_layout leeren
+                while dh_layout.count():
+                    item = dh_layout.takeAt(0)
+                    if item.widget():
+                        item.widget().deleteLater()
+
+                # detail_layout leeren
+                while detail_layout.count():
+                    item = detail_layout.takeAt(0)
+                    if item.widget():
+                        item.widget().deleteLater()
+
+                # ── Fixer Header in dh_layout ──
+                back_btn = QPushButton("‹  " + lbl_back)
+                back_btn.setFixedHeight(20)
+                back_btn.setCursor(QCursor(Qt.PointingHandCursor))
+                back_btn.setFont(QFont("Segoe UI", 10))
+                back_btn.setStyleSheet("""
+                    QPushButton {
+                        background: transparent; color: #5A8A9A;
+                        border: none; text-align: left; padding: 0;
+                    }
+                    QPushButton:hover { color: #28AEED; }
+                """)
+                back_btn.clicked.connect(lambda: (
+                    scroll.verticalScrollBar().setValue(0),
+                    detail_header.setVisible(False),
+                    search_frame.setVisible(True),
+                    stack.setCurrentIndex(0),
+                    stack.setFixedHeight(older_widget.sizeHint().height()),
+                    scroll.updateGeometry()
+                ))
+                dh_layout.addWidget(back_btn)
+
+                dsep = QFrame()
+                dsep.setFixedHeight(1)
+                dsep.setStyleSheet("background: #1D3545; border: none; margin: 4px 0;")
+                dh_layout.addWidget(dsep)
+                dh_layout.addSpacing(8)
+
+                ver_hdr_row = QWidget()
+                ver_hdr_row.setFixedHeight(26)
+                ver_hdr_row.setStyleSheet("background: transparent;")
+                vhr_l = QHBoxLayout(ver_hdr_row)
+                vhr_l.setContentsMargins(0, 0, 0, 0)
+                vhr_l.setSpacing(8)
+                vhr_l.setAlignment(Qt.AlignVCenter)
+
+                vhdr_bar = QFrame()
+                vhdr_bar.setFixedSize(2, 20)
+                vhdr_bar.setStyleSheet("""
+                    background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                        stop:0 #1A6A9A, stop:0.5 #28AEED, stop:1 #1A6A9A);
+                    border-radius: 1px; border: none;
+                """)
+                vhr_l.addWidget(vhdr_bar)
+
+                vhdr_lbl = QLabel(ver)
+                vhdr_lbl.setFont(QFont("Cascadia Code", 13, QFont.Bold))
+                vhdr_lbl.setStyleSheet("color: #28AEED; background: transparent; border: none;")
+                vhr_l.addWidget(vhdr_lbl)
+                vhr_l.addStretch()
+                dh_layout.addWidget(ver_hdr_row)
+
+                dsep1 = QFrame()
+                dsep1.setFixedHeight(1)
+                dsep1.setStyleSheet("background: #1D3545; border: none; margin: 4px 0;")
+                dh_layout.addWidget(dsep1)
+                dh_layout.addSpacing(8)
+
+                # ── Nur Card im scrollbaren detail_layout ──
+                detail_layout.addWidget(make_entry_card(bullets))
+                detail_layout.addStretch()
+
+                search_frame.setVisible(False)
+                detail_header.setVisible(True)
+                stack.setMaximumHeight(16777215)
+                stack.setCurrentIndex(1)
+
+
+
+            # ── Toggle logic ───────────────────────────────
+            _expanded = [False]
+
+            def expand():
+                _expanded[0] = True
+                toggle_frame_main.setVisible(False)
+                ov_h = dialog.height() - OVERLAY_Y - FOOTER_H
+                overlay.setGeometry(1, OVERLAY_Y, 698, ov_h)
+                stack.setCurrentIndex(0)
+                search_frame.setVisible(True)
+                overlay.setVisible(True)
+                overlay.raise_()
+
+            def collapse():
+                _expanded[0] = False
+                overlay.setVisible(False)
+                detail_header.setVisible(False)                    
+                search_input.clear()
+                for _, _, rw in all_older_rows:
+                    rw.setVisible(True)
+                stack.setCurrentIndex(0)
+                toggle_frame_main.setVisible(True)
+                latest_scroll.verticalScrollBar().setValue(0)
+
+            toggle_btn_main.clicked.connect(expand)
+            toggle_lbl_main.mousePressEvent = lambda e: expand()
+            toggle_lbl_main.enterEvent = lambda e: toggle_lbl_main.setStyleSheet(
+                "color: #28AEED; background: transparent; border: none;"
+            )
+            toggle_lbl_main.leaveEvent = lambda e: toggle_lbl_main.setStyleSheet(
+                "color: #3A6070; background: transparent; border: none;"
+            )
+            toggle_btn_ov.clicked.connect(collapse)
+            toggle_lbl_ov.mousePressEvent = lambda e: collapse()
+            toggle_lbl_ov.enterEvent = lambda e: toggle_lbl_ov.setStyleSheet(
+                "color: #28AEED; background: transparent; border: none;"
+            )
+            toggle_lbl_ov.leaveEvent = lambda e: toggle_lbl_ov.setStyleSheet(
+                "color: #3A6070; background: transparent; border: none;"
+            )
+            def filter_older(text):
+                q = text.lower()
+                for ver_str, search_str, row_widget in all_older_rows:
+                    row_widget.setVisible(not q or q in ver_str.lower() or q in search_str)
+
+            search_input.textChanged.connect(filter_older)
+
+        else:
+            main_layout.addStretch()
+
+        # ── Footer ─────────────────────────────────────────
+        footer_sep = QFrame()
+        footer_sep.setFixedHeight(1)
+        footer_sep.setStyleSheet("background: #1D3545; border: none;")
+        main_layout.addWidget(footer_sep)
+
+        footer = QFrame()
+        footer.setObjectName("footer")
+        footer.setFixedHeight(44)
+        footer.setStyleSheet("""
+            #footer {
+                background: transparent; border: none;
+                border-bottom-left-radius: 14px;
+                border-bottom-right-radius: 14px;
+            }
+        """)
+        ft_layout = QHBoxLayout(footer)
+        ft_layout.setContentsMargins(18, 0, 18, 0)
+
+        sig = QLabel('made by  <span style="color:#5A8A9A;">stevo_ko</span>')
+        sig.setFont(QFont("Segoe UI", 10))
+        sig.setTextFormat(Qt.RichText)
+        sig.setStyleSheet("color: #3A6070; background: transparent; border: none;")
+        ft_layout.addWidget(sig)
+        ft_layout.addStretch()
+
+        close_btn = QPushButton("Schließen" if "(DE)" in lang_suffix else "Close")
+        close_btn.setFixedSize(110, 28)
+        close_btn.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        close_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        close_btn.setStyleSheet("""
+            QPushButton {
+                background: #0E2030; color: #28AEED;
+                border: 1px solid #28AEED; border-radius: 7px; padding: 4px 14px;
+            }
+            QPushButton:hover { background: #1A3D52; color: #00FFFF; }
+            QPushButton:pressed { background: #0A1E2C; }
+        """)
+        close_btn.clicked.connect(dialog.close)
+        ft_layout.addWidget(close_btn)
+
+        main_layout.addWidget(footer)
+        dialog.show()
+        def _adjust_height():
+            toggle_h = toggle_frame_main.sizeHint().height() if older_versions else 0
+            frame_h  = 26 + 1 + 10 + (len(latest_bullets) * 34 + 6) + 14
+            max_h    = dialog.height() - 38 - 1 - 45 - 1 - toggle_h - 10
+            latest_frame.setFixedHeight(min(frame_h, max_h))
+
+        QTimer.singleShot(0, _adjust_height)
+
+    except Exception as e:
+        print(f"[changelog] Fehler: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        
+def _get_version_content(raw: str, lang_suffix: str = None) -> str:
+    lines    = raw.splitlines()
+    result   = []
+    in_block = False
+
+    for line in lines:
+        if line.startswith("## "):
+            matches_lang = (lang_suffix is None) or (lang_suffix in line)
+
+            if in_block:
+                break
+
+            if matches_lang:
+                in_block = True
+                # Lang Suffix aus dem Header entfernen
+                clean_line = line.replace(f" {lang_suffix}", "").replace(lang_suffix, "").strip()
+                result.append(clean_line)
+            continue
+
+        if in_block:
+            result.append(line)
+
+    return "\n".join(result)
+        
+def _show_changelog():
+    changelog_path = os.path.join(programm_ordner, "Matchfixes_Changelog.md")
+    current_version = f"v{rules.get('version', '?')}" if rules else "?"
+    lang_suffix = "(DE)" if language == 1 else "(EN)"
+ 
+    content = None
+    if os.path.exists(changelog_path):
+        with open(changelog_path, "r", encoding="utf-8") as f:
+            content = f.read()
+ 
+    # Fallback: dummy content wenn Datei fehlt oder leer
+    if not content or not content.strip():
+        dummy = CHANGELOG_DUMMY \
+            .replace("## (DE)", f"## {current_version} (DE)") \
+            .replace("## (EN)", f"## {current_version} (EN)")
+        content = dummy
+ 
+    # Vollständigen Inhalt + aktuelle Version übergeben
+    # Das Fenster filtert selbst nach current_version und baut die älteren Versionen
+    _changelog_signal.open_changelog.emit(content, current_version, lang_suffix)
+
+def _init_changelog_signal():
+    _changelog_signal.open_changelog.connect(_open_changelog_window, Qt.QueuedConnection)
+    if console is not None:
+        _gui_signals.show_console_window.connect(console.show)
+        _gui_signals.hide_console_window.connect(console.hide)
+
+ico_path = get_resource_path("icon.ico")
+png_path = get_resource_path("app.png")
+
+if not os.path.exists(png_path):
+    PILImage.open(ico_path).save(png_path)
+
+MATCH_URL      = "https://github.com/stevo-ko/Category_Switcher/raw/refs/heads/main/matchfixes.switcher"
+MATCH_CHANGELOG_URL = "https://github.com/stevo-ko/Category_Switcher/raw/refs/heads/main/Matchfixes_Changelog.md"
+TOAST_APP_ID   = "stevo_ko.CategorySwitcher"
+TOAST_APP_NAME = "Category Switcher"
+TOAST_FLAG     = os.path.join(programm_ordner, "_internal", ".toast_registered")
+_toast_build_params = {}
+ 
+def _get_text(de, en):
+    return de if language == 1 else en
+ 
+def _toast_cleanup() -> None:
+    if os.path.exists(TOAST_FLAG):
+        try:
+            registered = [i[0] for i in Toast.list_app_ids()]
+            if TOAST_APP_ID in registered:
+                Toast.unregister_app_id(TOAST_APP_ID)
+        except Exception:
+            pass
+        try:
+            os.remove(TOAST_FLAG)
+        except Exception:
+            pass
+        
+        
+def _toast_init() -> None:
+    _toast_cleanup()
+    os.makedirs(os.path.join(programm_ordner, "_internal"), exist_ok=True)
+    Toast.register_app_id(TOAST_APP_ID, TOAST_APP_NAME, icon_uri=get_resource_path("icon.ico"))
+    open(TOAST_FLAG, "w").close()
+
+def _build_result_toast(de_status: str, en_status: str, counts: dict, changed: bool = False, first_download: bool = False, show_popup: bool = True) -> Toast:
+    t = Toast(app_id=TOAST_APP_ID,duration=ToastDuration.LONG)
+    if not show_popup:
+        t.show_popup = False
+    image = False
+    if image:
+        elements= [
+            
+            Image(
+                source=f"ms-appx:///{get_resource_path('app.png').replace(os.sep, '/')}",
+                placement=ToastImagePlacement.LOGO,
+                is_circle=True,
+            ),            
+            Text(de_status if language == 1 else en_status, style=ToastTextStyle.TITLE, align=ToastTextAlign.CENTER),
+            
+        ]
+    else:
+            
+        elements = [
+            Text(de_status if language == 1 else en_status, style=ToastTextStyle.TITLE, align=ToastTextAlign.CENTER),
+        ]    
+    
+    # Version nur bei echtem Update anzeigen
+    if changed:
+        elements.append([
+            [
+                Text(_get_text("Alte Version    \u279c", "Old Version    \u279c"), style=ToastTextStyle.SUBTITLESUBTLE, align=ToastTextAlign.RIGHT),
+                Text(f"v{counts.get('old_version', '?')}",    style=ToastTextStyle.SUBTITLESUBTLE, align=ToastTextAlign.CENTER),
+                
+            ],
+            [
+                Text(_get_text("Neue Version", "New Version"),   style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
+                
+                Text(f"v{counts['version']}",                 style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
+            ],
+        ])
+        # Gruppe 1: Mappings + Exact
+        elements.append([
+            [
+                Text("Mappings",              style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['mappings']), style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+            ],
+            [
+                Text("Exact",                style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['exact']),   style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+            ],
+        ])
+
+        # Gruppe 2: Excluded + EXEs
+        elements.append([
+            [
+                Text(_get_text("Ausgeschlossen", "Excluded"), style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['names']),                    style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+            ],
+            [
+                Text("EXEs",                   style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['exact_exe']), style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+            ],
+        
+        ])
+        elements.append(
+            Button(
+                _get_text("Changelog", "Changelog"),
+                arguments="changelog",
+            )
+        )
+    elif first_download:
+        elements.append([
+            [
+                Text(_get_text("Version", "Version"),   style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
+                
+                Text(f"v{counts['version']}",                 style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
+            ],
+        ])
+        # Gruppe 1: Mappings + Exact
+        elements.append([
+            [
+                Text("Mappings",              style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['mappings']), style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+            ],
+            [
+                Text("Exact",                style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['exact']),   style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+            ],
+        ])
+
+        # Gruppe 2: Excluded + EXEs
+        elements.append([
+            [
+                Text(_get_text("Ausgeschlossen", "Excluded"), style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['names']),                    style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+            ],
+            [
+                Text("EXEs",                   style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['exact_exe']), style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+            ],
+        
+        ])
+        elements.append(
+            Button(
+                _get_text("Changelog", "Changelog"),
+                arguments="changelog",
+            )
+        )
+    else:
+        elements.append([
+            [
+                Text(_get_text("Version", "Version"),   style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
+                
+                Text(f"v{counts['version']}",                 style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
+            ],
+        ])
+        
+
+
+
+    t.elements = elements
+    
+    _toast_build_params[id(t)] = (de_status, en_status, counts, changed, first_download)
+    return t
+ 
+def _load_rules_with_toast(toast_obj=None):
+    key, iv    = get_key_and_iv(MATCH_ENC_KEY)
+    local_path = os.path.join(programm_ordner, "matchfixes.switcher")
+    local_changelog_path = os.path.join(programm_ordner, "Matchfixes_Changelog.md")
+ 
+    def _upd(de_status, en_status, progress, de_detail, en_detail, percent):
+        if toast_obj:
+            toast_obj.update({
+                "status":   de_status   if language == 1 else en_status,
+                "progress": progress,
+                "detail":   de_detail   if language == 1 else en_detail,
+                "percent":  percent,
+            })
+ 
+    def decrypt(raw):
+        verified  = verify_and_strip_hmac(raw, key)
+        decrypted = encrypt_decrypt(verified, key, iv)
+        return json.loads(decrypted)
+ 
+    def encrypt_and_save(data):
+        raw       = json.dumps(data, ensure_ascii=False).encode()
+        encrypted = encrypt_decrypt(raw, key, iv)
+        secured   = add_hmac(encrypted, key)
+        with open(local_path, "wb") as f:
+            f.write(secured)
+ 
+    def merge(local, online):
+        if local is None:
+            return online, True
+        merged  = {k: online[k] for k in online}
+        changed = merged != local
+        return merged, changed
+ 
+    def count(r):
+        return {
+            "version":   r.get("version", "?"),
+            "mappings":  len(r.get("game_name_mappings", [])),
+            "exact":     len(r.get("game_name_exact", [])),
+            "names":     len(r.get("excluded_exe_names_in_code", [])),
+            "exact_exe": len(r.get("excluded_exe_exact_in_code", [])),
+        }
+ 
+    # 1. Prüfe Update
+    _upd("🔍 Prüfe Update…",     "🔍 Checking for update…",
+         0.1,
+         "Verbinde mit Server…", "Connecting to server…",   "10%")
+ 
+    online_raw = None
+    try:
+        response = requests.get(MATCH_URL, timeout=5)
+        if response.status_code == 200:
+            online_raw = response.content
+    except:
+        pass
+    if online_raw is not None:
+        # 2. Download
+        _upd("⬇️ Update herunterladen…", "⬇️ Downloading update…", 
+            0.4,
+            "Herunterladen…",         "Downloading…",            "40%")
+        time.sleep(0.3)
+    else:
+        
+        _upd("❌ Datei Online nicht gefunden", "❌ File online not found",
+            0.4,
+            "Datei online nicht gefunden", "File online not found", "40%")
+        time.sleep(0.3)
+    local_raw = None
+    first_download = False
+
+    if os.path.exists(local_path):
+        with open(local_path, "rb") as f:
+            local_raw = f.read()
+    elif online_raw:
+        try:
+            with open(local_path, "wb") as f:
+                f.write(online_raw)
+            local_raw = online_raw
+            first_download = True
+        except:
+            pass
+
+    online_rules = local_rules = None
+
+    if online_raw:
+        try:
+            online_rules = decrypt(online_raw)
+        except:
+            pass
+
+    if local_raw:
+        try:
+            local_rules = decrypt(local_raw)
+        except:
+            pass
+        
+    changelog_raw = None
+    try:
+        response = requests.get(MATCH_CHANGELOG_URL, timeout=5)
+        if response.status_code == 200:
+            changelog_raw = response.content
+    except:
+        pass
+
+    if changelog_raw is not None:
+        # Online verfügbar → immer lokal überschreiben
+        try:
+            with open(local_changelog_path, "wb") as f:
+                f.write(changelog_raw)
+        except:
+            pass
+        _upd("⬇️ Lade Changelog…", "⬇️ Loading changelog…",
+             0.7,
+             "Verarbeite Daten…",  "Processing data…",  "70%")
+        time.sleep(0.3)
+    else:
+        # Kein Online → lokalen verwenden falls vorhanden
+        if os.path.exists(local_changelog_path):
+            with open(local_changelog_path, "rb") as f:
+                changelog_raw = f.read()
+            _upd("⚠️ Changelog online nicht gefunden", "⚠️ Changelog online not found",
+                0.7,
+                "Weiter…",  "Continuing…",  "70%")
+        else:
+            _upd("❌ Changelog nicht verfügbar", "❌ Changelog not available",
+                 0.7,
+                 "Kein Changelog verfügbar", "No changelog available", "70%")
+            
+        time.sleep(0.3)
+
+    if online_rules:
+        # ── Erster Download ──────────────────────────────
+        if first_download:
+            counts = count(online_rules)
+
+            _upd("⬇️ Lade Match Liste…", "⬇️ Loading match list…",
+                 0.9, "Abgeschlossen…", "Done…", "90%")
+            return online_rules, True, _build_result_toast(
+                "✅ Match Liste heruntergeladen",
+                "✅ Match list downloaded",
+                counts,
+                changed=False,
+                first_download=True
+            ), True
+
+        # ── Normaler Merge ────────────────────────────────
+        merged, changed = merge(local_rules, online_rules)
+        counts = count(merged)
+        old_version = local_rules.get("version", "?") if local_rules else "?"
+        counts["old_version"] = old_version
+
+        if changed:
+            try:
+                encrypt_and_save(merged)
+                if language == 1:
+                    logging.info("✅ matchfixes.switcher aktualisiert")
+                else:
+                    logging.info("✅ matchfixes.switcher updated")
+            except Exception as e:
+                logging.warning(e)
+
+        _upd("⬇️ Lade Matchfix Liste…", "⬇️ Loading matchfix list…",
+             0.9,
+             "Abgeschlossen…",       "Done…",                   "90%")
+
+        return merged, changed, _build_result_toast(
+            "✅ Matchfix Liste aktualisiert" if changed else "✅ Bereits aktuell",
+            "✅ Matchfix list updated"       if changed else "✅ Already up to date",
+            counts,
+            changed=changed
+        ), False
+
+    if local_rules:
+        counts = count(local_rules)
+        counts["old_version"] = "?"
+        _upd("⬇️ Lade Match Liste…", "⬇️ Loading match list…",
+             0.9,
+             "Abgeschlossen…",       "Done…",                   "90%")
+        
+        return local_rules, False, _build_result_toast(
+            "⚠️ Nur lokal verfügbare Matchfixes",
+            "⚠️ Only local available matchfixes",
+            counts
+        ), False 
+
+    _upd("❌ Laden fehlgeschlagen", "❌ Load failed",
+         1.0,
+         "Keine Daten verfügbar",   "No data available",       "100%")
+
+    fail_toast = Toast(app_id=TOAST_APP_ID, duration=ToastDuration.LONG)
+    fail_toast.elements = [
+        Text(_get_text("❌ Matchfix Liste nicht verfügbar", "❌ Matchfix list unavailable"), style=ToastTextStyle.TITLE),
+        Text(_get_text("Keine Verbindung und keine lokalen Daten.", "No connection and no local data."))
+    ]
+
+    
+    return None, False, fail_toast, False
+
+    #return None, False, None, False
+
+
+
+async def _run_update_notification():
+    global _active_toast, rules, _toast_build_params
+
+    loop = asyncio.get_event_loop()
+
+    loop.set_exception_handler(
+        lambda loop, ctx: None 
+        if isinstance(ctx.get("exception"), (asyncio.InvalidStateError, RuntimeError)) 
+        else loop.default_exception_handler(ctx)
+    )
+    _toast_init()
+
+    toast = Toast(app_id=TOAST_APP_ID, toast_id="update-toast")
+    _active_toast = toast
+    toast.elements = [
+        Text("{status}"),
+        Progress(value="{progress}", status="{detail}", display_value="{percent}"),
+    ]
+
+    show_task = asyncio.create_task(
+        toast.show({
+            "status":   _get_text("🔍 Prüfe Update…",   "🔍 Checking for update…"),
+            "progress": 0.0,
+            "detail":   _get_text("Starte…",             "Starting…"),
+            "percent":  "0%",
+        })
+    )
+
+    await asyncio.sleep(0.5)
+
+
+
+    rules_result, was_changed, result_toast, first_download = await asyncio.get_event_loop().run_in_executor(
+        None, _load_rules_with_toast, toast
+    )
+    
+    rules = rules_result
+        
+    await asyncio.sleep(1.0)
+    toast.hide()
+    show_task.cancel()
+    _active_toast = None
+
+    if result_toast:
+            _notification_ready.set()
+            if was_changed or first_download:
+                _dismissed = asyncio.Event()
+
+                def _on_toast_result(result: ToastResult):
+                    _dismissed.set()
+                    if result.arguments == "changelog":
+                        QTimer.singleShot(0, _show_changelog)
+
+                result_toast.on_result(_on_toast_result)
+                show_result = asyncio.create_task(result_toast.show())
+
+                for _ in range(100):  # 10 Sekunden in 0.1s Schritten
+                    if _dismissed.is_set():
+                        break
+                    await asyncio.sleep(0.1)
+                    
+                result_toast.hide()
+                _active_toast = None
+                params = _toast_build_params.get(id(result_toast))
+                if params:
+                    silent = _build_result_toast(*params, show_popup=False)
+                    _active_toast = silent
+
+                    @silent.on_result
+                    def _silent_result(result: ToastResult):
+                        if result is not None and result.arguments == "changelog":
+                            _show_changelog()
+
+                    _silent_task = asyncio.create_task(silent.show())
+
+            elif rules_result is None:
+                show_result = asyncio.create_task(result_toast.show())
+                await asyncio.sleep(10.0)
+                result_toast.hide()
+
+                silent = Toast(app_id=TOAST_APP_ID, show_popup=False)
+                silent.elements = result_toast.elements
+                _active_toast = silent
+                _silent_task = asyncio.create_task(silent.show())
+
+            else:
+                show_result = asyncio.create_task(result_toast.show())
+                _active_toast = result_toast
+                await asyncio.sleep(10.0)
+                result_toast.hide()
+                _active_toast = None
+
+                if rules_result is None:
+                    silent = Toast(app_id=TOAST_APP_ID, show_popup=False)
+                    silent.elements = result_toast.elements
+                    _active_toast = silent
+                    _silent_task = asyncio.create_task(silent.show())
+    
+        
+
+# _toast_cleanup()
+    return rules_result
 # Logging-Queue
 log_queue = queue.Queue()
-
+_output_buffer = []
 
 # PyQt für GUI/Konsolen Window
 # PyQt GUI for console window
@@ -422,8 +1762,14 @@ class ConsoleRedirector:
         
         """Leitet die Nachricht an die Queue weiter"""
         """Sends print to queue"""
-        if message.strip():  # Vermeidet leere Nachrichten | prevent empty messages
-            self.queue.put(message)
+        if message.strip():
+            if sys.__stdout__ is not None:  # ← nur Guard, sonst alles gleich
+                sys.__stdout__.write(message + "\n")
+            if gui:
+                self.queue.put(message)
+            else:
+                _output_buffer.append(message)
+            
 
     def flush(self):
         pass
@@ -477,6 +1823,8 @@ class ConsoleApp(QWidget):
             message = log_queue.get_nowait()
             self.console_text.append(message)
             self.console_text.verticalScrollBar().setValue(self.console_text.verticalScrollBar().maximum())
+    def closeEvent(self, event):
+        QApplication.instance().quit()
             
 if show_console:
     
@@ -489,6 +1837,7 @@ if show_console:
 
 restarted = "--restarted" in sys.argv
 gui = False
+console = None
    
 def restart_program(with_console):
 
@@ -628,8 +1977,8 @@ def monitor_instances():
 
         time.sleep(CHECK_INTERVAL)
 
-double_instance_thread = threading.Thread(target=monitor_instances, daemon=True)
-double_instance_thread.start()
+# double_instance_thread = threading.Thread(target=monitor_instances, daemon=True)
+# double_instance_thread.start()
 
 
 def terminate_current_instance():
@@ -641,9 +1990,48 @@ def terminate_current_instance():
         print(f"Die aktuelle Instanz (PID {current_pid}) wurde beendet.")
     except (psutil.NoSuchProcess, psutil.AccessDenied):
         print("Fehler beim Beenden der aktuellen Instanz.")
-        
-        
-        
+
+
+MATCH_ENC_KEY = ""
+
+
+def get_key_and_iv(match_enc_key):
+    key = hashlib.sha256(match_enc_key.encode('utf-8')).digest()
+    iv  = hashlib.md5(match_enc_key.encode('utf-8')).digest()
+    return key, iv
+ 
+def encrypt_decrypt(data, key, iv):
+    result     = bytearray(len(data))
+    block_size = 64
+    for i in range(0, len(data), block_size):
+        counter   = struct.pack('>Q', i // block_size)
+        keystream = hashlib.sha256(key + iv + counter).digest() + \
+                    hashlib.sha256(key + iv + counter + b'\x01').digest()
+        block = data[i:i + block_size]
+        for j, byte in enumerate(block):
+            result[i + j] = byte ^ keystream[j]
+    return bytes(result)
+ 
+def add_hmac(data, key):
+    import hmac
+    mac = hmac.new(key, data, hashlib.sha256).digest()
+    return mac + data
+ 
+def verify_and_strip_hmac(data, key):
+    import hmac
+    mac      = data[:32]
+    content  = data[32:]
+    expected = hmac.new(key, content, hashlib.sha256).digest()
+    if not hmac.compare_digest(mac, expected):
+        raise ValueError("HMAC verification failed - data tampered!")
+    return content   
+ 
+
+excluded_exe_patterns = []
+excluded_exe_names = []
+excluded_exe_exact = []
+game_name_mappings = []
+game_name_exact = []
 latest_game_event = None
 game_started_event = threading.Event()
 Playnite_Game_Stopped = None
@@ -657,6 +2045,7 @@ playnite_enabled = None
 game_stopped = None
 program_stopped = None
 playnite_running = None
+
 _last_check = 0
 _last_result = True
 
@@ -732,7 +2121,7 @@ def start_watcher():
         return
 
     observer = Observer()
-    print(f"Observer-Typ: {type(observer).__name__}")
+    #print(f"Observer-Typ: {type(observer).__name__}")
     event_handler = JsonHandler()
     directory = os.path.dirname(filepath)
     observer.schedule(event_handler, path=directory, recursive=False)
@@ -760,9 +2149,13 @@ kick_enabled = None
 kick_missing = False
 category_set_already = None
 previous_saved_games = None
+previous_game_folder = None
+prev_game_set = False
 first_save = False
 game_folder = "Nothing"
 found_folder = None
+alternatives_tried = False
+alternatives_tried_kick = False
 delay_programming = 0
 delay_general = 0
 delay_playnite = 0
@@ -786,7 +2179,7 @@ known_exe_names = ["blender.exe","UnrealEditor.exe","Unity Hub.exe","Code.exe","
                     "npm.exe","dotnet.exe","java.exe","javac.exe","psql.exe","mysql.exe","dbeaver.exe","git.exe",
                     "tortoisegitproc.exe","vmware.exe","virtualbox.exe","qemu-system-x86_64.exe","adb.exe","docker.exe",
                     "dottrace.exe","dotmemory.exe","perfview.exe","choco.exe","scoop.exe","winget.exe","postman.exe",
-                    "curl.exe","wget.exe"
+                    "curl.exe","wget.exe","perfwatson2.exe","ServiceHub.IntellicodeModelService.exe"
                     ]
    
 last_modified = None  
@@ -797,7 +2190,10 @@ printed_closed = False
 
 def main_logic():
     
-    global token, CLIENT_ID, token_valid, category_set_already, language, previous_saved_games, first_save, game_folder, config_path, last_modified, message, with_console, known_exe_names, settingspath, update_from_version_below_2, printed_closed, found_folder
+    global token, CLIENT_ID, token_valid, category_set_already, language, previous_saved_games, previous_game_folder, prev_game_set, first_save, game_folder, alternatives_tried, alternatives_tried_kick, config_path, last_modified, message, with_console, known_exe_names, settingspath, update_from_version_below_2, printed_closed, found_folder
+    
+    ##gui
+    global console
     
     ## delays
     global delay_programming, delay_general, delay_playnite, game_stopped, program_stopped
@@ -807,6 +2203,9 @@ def main_logic():
 
     ## Playnite globals
     global _last_check, _last_result, Playnite_exit, Playnite_Game_Retry, playnite_enabled, save_games_to_file, observer, filepath, game_set, Playnite_Game_Stopped, watcher_started, waiting_for_game, game_started_event, latest_game_event, playnite_running 
+
+    ## Hardcoded Matches
+    global rules, excluded_exe_patterns, excluded_exe_names, excluded_exe_exact, game_name_mappings, game_name_exact    
     
 ##    print(config_path)
 ##    print(last_modified)
@@ -843,6 +2242,7 @@ def main_logic():
     allowed_paths = config["paths"]["allowed_paths"]
     excluded_names = set(config["paths"]["excluded_names"])  # In ein Set umwandeln / convert to a set
     excluded_folders = set(config["paths"]["excluded_folders"])  # In ein Set umwandeln / convert to a set
+
     
     # Optionen
     # options
@@ -955,9 +2355,9 @@ def main_logic():
             print("Invalid language setting in config.json, defaulting to English.")
             language = 0
         if language == 1:
-            print("✅ Config.json wurde verändert. Erfolgreich reloaded.")
+            print("✅ Config.json wurde verändert. Erfolgreich neu geladen.")
         if language == 0:
-            print("✅ Config.json has changed. Succesful relaoded")
+            print("✅ Config.json has changed. Succesful reloaded")
 
     # Varianten für die Sprach Einstellung und ein paar Spielschreibweisen
     # Variants for language options and a few games
@@ -1029,6 +2429,7 @@ def main_logic():
             re.search(ue_pattern, exe_path_lower)
             or re.search(godot_pattern, exe_path_lower)
             or any(exe.lower() in exe_path_lower for exe in known_exe_names)
+            or "microsoft visual studio" in exe_path_lower
         )
 
     
@@ -1074,23 +2475,6 @@ def main_logic():
         
         return False
 
-
-    def is_playnite_running_old(interval=3):
-        """
-        Prüft, ob Playnite läuft, aber nur alle `interval` Sekunden wirklich per psutil.
-        Dazwischen wird das letzte Ergebnis zurückgegeben (Cache).
-        """
-        global _last_check, _last_result
-        now = time.time()
-        if now - _last_check < interval:
-            return _last_result  # altes Ergebnis zurückgeben
-
-        _last_check = now
-        _last_result = any(
-            "playnite" in (p.info["name"] or "").lower()
-            for p in psutil.process_iter(["name"])
-        )
-        return _last_result
 
     def get_streamerbot_url():
 
@@ -1204,7 +2588,7 @@ def main_logic():
             
             if not show_console:
                 if not gui:
-                    start_gui()                
+                    _gui_signals.show_console_window.emit()                  
             
             if language == 1:
                 print("❌ Verbindung zu Streamer.bot konnte nicht hergestellt werden. Stelle sicher das der HTTP Server gestartet ist")
@@ -1220,7 +2604,7 @@ def main_logic():
             
             if not show_console:
                 if not gui:
-                    start_gui()
+                    _gui_signals.show_console_window.emit()   
 
             if language == 1:
                 print("❌ Streamer.bot URL oder Port leer oder nicht gültig.")
@@ -1230,7 +2614,7 @@ def main_logic():
             
             if not show_console:
                 if not gui:
-                    start_gui()
+                    _gui_signals.show_console_window.emit()   
 
             if language == 1:
                 print("❌ Unbekannter Fehler bei Anfrage an Streamer.bot.")
@@ -1313,7 +2697,7 @@ def main_logic():
             
             if not show_console:
                 if not gui:
-                    start_gui()                
+                    _gui_signals.show_console_window.emit()                  
             
             if language == 1:
                 print("❌ Verbindung zu Streamer.bot konnte nicht hergestellt werden. Stelle sicher das der HTTP Server gestartet ist")
@@ -1327,7 +2711,7 @@ def main_logic():
             
             if not show_console:
                 if not gui:
-                    start_gui()
+                    _gui_signals.show_console_window.emit()   
 
             if language == 1:
                 print("❌ Streamer.bot URL oder Port leer oder nicht gültig.")
@@ -1338,7 +2722,7 @@ def main_logic():
             
             if not show_console:
                 if not gui:
-                    start_gui()
+                    _gui_signals.show_console_window.emit()   
 
             if language == 1:
                 print("❌ Unbekannter Fehler bei Anfrage an Streamer.bot.")
@@ -1408,10 +2792,11 @@ def main_logic():
 
     # Funktion, um eine Twitch-Kategorie per Name zu suchen
     # Function to search Twitch-category with the Name
-    def search_twitch_category(token, search_query):
+    def search_twitch_category(tokensearch, search_query, _retry=False):
+        global token
         url = "https://api.twitch.tv/helix/search/categories"
         headers = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {tokensearch}",
             "Client-ID": CLIENT_ID
 
         }
@@ -1419,12 +2804,7 @@ def main_logic():
 
         response = requests.get(url, headers=headers, params=params)
         
-        if response.status_code != 200:
-            if language == 1:
-                print(f"❌ Fehler bei der Kategorie-Suche: {response.status_code}, {response.text}")
-            if language == 0:
-                print(f"❌ Category search error: {response.status_code}, {response.text}")
-            return []
+
 
         if response.status_code == 401:
             if language == 1:
@@ -1435,21 +2815,35 @@ def main_logic():
             if is_streamerbot_running():               
 
                     
-                token = get_access_token_action()
+                get_access_token_action()
 
                 # Warten, bis der Token empfangen und gespeichert wird
                 time.sleep(2)
-                save_token_to_config(token, CLIENT_ID)
-
-                if language == 1:
-                    print("✅ Token und CLIENT_ID erfolgreich gespeichert!\n")
-                if language == 0:
-                    print("✅ Token and CLIENT_ID saved successfull!\n")
+                with open("config.json", "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                    token = config["twitch"]["OAuth_token"]                
+            
+                if not token:
+                    print("❌ No token received!" if language == 0 else "❌ Kein Token empfangen!")
+                    return []
+                else:
+                    if language == 1:
+                        print("✅ Token und CLIENT_ID erfolgreich gespeichert!\n")
+                    if language == 0:
+                        print("✅ Token and CLIENT_ID saved successfull!\n")
             else:
                 if language == 1:
                     print("Streamer.bot nicht gestartet!")
                 if language == 0:
-                    print("Streamer.bot not running!") 
+                    print("Streamer.bot not running!")
+            return search_twitch_category(token, search_query, _retry=True)
+                    
+        if response.status_code != 200:
+            if language == 1:
+                print(f"❌ Fehler bei der Kategorie-Suche: {response.status_code}, {response.text}")
+            if language == 0:
+                print(f"❌ Category search error: {response.status_code}, {response.text}")
+            return []
 
         return response.json().get("data", [])
     
@@ -1491,6 +2885,36 @@ def main_logic():
         # ---- Erfolg ----
         return response.json().get("data", [])
 
+    def search_wikipedia_game(query):
+        url = "https://en.wikipedia.org/w/api.php"
+
+        params = {
+            "action": "opensearch",
+            "search": query,
+            "limit": 1,
+            "namespace": 0,
+            "format": "json"
+        }
+
+        headers = {
+            "User-Agent": "StreamerBotGameResolver/1.0"
+        }
+
+        try:
+            r = requests.get(url, params=params, headers=headers, timeout=5)
+
+            if r.status_code != 200:
+                return None
+
+            data = r.json()
+
+            if isinstance(data, list) and len(data) > 1 and data[1]:
+                return data[1][0]
+
+        except:
+            return None
+
+        return None
     
     def get_next_greater_3_4_size(width, height):
         """Berechnet die nächstgrößere 3:4-Größe und speichert sie direkt in config.json, falls sie sich geändert hat."""
@@ -1664,9 +3088,54 @@ def main_logic():
             print("No valid folder found.")  # Debug-Ausgabe
         return None
 
+
+
+    def get_window_title_by_exe(pid):
+        titles = []
+        
+        def callback(hwnd, _):
+            if ctypes.windll.user32.IsWindowVisible(hwnd):
+                length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+                if length > 0:
+                    proc_id = wintypes.DWORD()
+                    ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(proc_id))
+                    if proc_id.value == pid:
+                        buff = ctypes.create_unicode_buffer(length + 1)
+                        ctypes.windll.user32.GetWindowTextW(hwnd, buff, length + 1)
+                        titles.append(buff.value)
+            return True
+        
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+        ctypes.windll.user32.EnumWindows(WNDENUMPROC(callback), 0)
+        
+        if not titles:
+            return None
+        
+        title = titles[0]
+        
+        # Bereinigung
+        title = re.sub(r'[™®©℠]', '', title)
+        title = re.sub(r'\s+v\d+[\.\d]*$', '', title, flags=re.IGNORECASE)
+        
+        suffixes_to_remove = [
+            r'\s*-\s*Steam$',
+            r'\s*-\s*Epic Games$',
+            r'\s*-\s*GOG$',
+            r'\s*\(\d+\)$',
+            r'\s*\[.*?\]$',
+            r'\s*\|.*$',
+        ]
+        for suffix in suffixes_to_remove:
+            title = re.sub(suffix, '', title, flags=re.IGNORECASE)
+        
+        return title.strip() or None
+
+
+
     # Set für bereits ausgegebene Prozesse (kombiniert aus PID und exe-Pfad)
     # Set already found processes (combined of PID and exe path)
     seen_processes = set()
+    _notification_ready.wait(timeout=30)
 
     # Token nur einmal abrufen
     # Retrive Token only once
@@ -1727,8 +3196,11 @@ def main_logic():
             if update_from_version_below_2:
                 get_access_token_action()
                 
-                
-
+    else:            
+        if language == 1:
+            print("⚠️ Nur lokale Datenbank verwenden ist aktiviert.")  
+        if language == 0:
+            print("⚠️ Use only local database is enabled.")
     # JSON-Daten werden hier gespeichert
     # Save json data
     saved_games = []
@@ -1826,8 +3298,10 @@ def main_logic():
             else:
                 if language == 1:
                     print("❌ Fehler: Datei 'game_data.json' existiert nicht.")
+                    print("🆕 Die Datei wird mit einer leeren Spiele-Liste neu erstellt.\n")
                 if language == 0:
                     print("❌ Error: File 'game_data.json' doesn't exist.")
+                    print("🆕 The file will be created new with an empty games list.\n")
                 save_saved_games([])
                 return []
 
@@ -1858,6 +3332,7 @@ def main_logic():
     streamerbot_started = False
     displayed_warning = False
     displayed_warning_category = False
+    
     if token is not None and connection is not None:
         print("-" * 90)
         if language == 1:           
@@ -1866,758 +3341,658 @@ def main_logic():
             print("⌛ Wating for the game process 🎮".center(84))
         print("-" * 90)
 
+
+    if rules:
+        excluded_exe_patterns = rules["excluded_exe_patterns_in_code"]
+        excluded_exe_names = rules["excluded_exe_names_in_code"]
+        excluded_exe_exact = set(rules["excluded_exe_exact_in_code"])
+        game_name_mappings = rules["game_name_mappings"]
+        game_name_exact = rules["game_name_exact"]
+    else:
+        if language == 1:
+            print("⚠️ Matchfixes nicht verfügbar, die Kategorien können für manche Spiele nicht korrekt gefunden werden!")
+        if language == 0:
+            print("⚠️ Matchfixes not available, finding categorys might not work properly for some games!")       
+
+    process_to_game = {}
     while True:
-       
-        current_modified = os.path.getmtime(config_path)
-        
-        if current_modified != last_modified:
-            ##print("Die config.json wurde geändert, neu laden!")
-            last_modified = current_modified
-            load_config_live()
-            if not show_console:
-                if not getattr(sys, 'frozen', False):  
-                    # Falls als .py ausgeführt, direkt ohne Konsole starten
-                    restart_program(with_console=False)
+        try:
+           
+            current_modified = os.path.getmtime(config_path)
+            
+            if current_modified != last_modified:
+                ##print("Die config.json wurde geändert, neu laden!")
+                last_modified = current_modified
+                load_config_live()
+                if not show_console:
+                    if not getattr(sys, 'frozen', False):
+                    
+                        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+                        if hwnd:
+                            ctypes.windll.user32.ShowWindow(hwnd, 0)
+                        if console is not None:
+                            _gui_signals.hide_console_window.emit()
                 else:
-                    restart_program_no_console()
-            else:
-                if not gui:
-                    start_gui()
-            if censor_mode:
-                censoring()# Hier rufst du deine Funktion auf        
-        current_seen = set()
-        for proc in psutil.process_iter(['pid', 'name', 'exe']):
-            try:
-                
-                failed = False
-                exe_path = proc.info['exe']
-                pid = proc.info['pid']
-                name = proc.info['name']
-
-
-                
-                # Sicherstellen, dass der Prozess ein valides exe_path hat und in allowed_paths liegt
-                # Make sure process has an valid exe_path and is in allowed_paths
-                if not exe_path or name in excluded_names:
-                    continue
-                
-                # Prüfen, ob der exe_path in allowed_paths ist
-                normalized_exe_path = os.path.normcase(os.path.normpath(exe_path))
-                normalized_allowed_paths = [os.path.normcase(os.path.normpath(path)) for path in allowed_paths]
-                name_lower = name.lower()
-                
-                skip_path_check = name_lower in (
-                    'playnite.desktopapp.exe',
-                    'playnite.fullscreenapp.exe'
-                )
-
-                if not skip_path_check:
-                    if not any(normalized_exe_path.startswith(path) for path in normalized_allowed_paths):
-##                        print(f"Prozess {name} mit exe_path {exe_path} ist nicht in allowed_paths.")
-                        continue  # Wenn der exe_path nicht in allowed_paths liegt, überspringe diesen Prozess
                     
-                exe_lower = os.path.basename(exe_path).lower()
+                    _gui_signals.show_console_window.emit()     
                 
-                #Überspringe verschiedene nicht gewollte Exe dateien
-                #Skip not wanted exe files
-                
-                if "steamapps/common/obs studio" in exe_path.replace("\\", "/").lower():
-                    continue
-                
-                if "steamapps/common/steamvr" in exe_path.replace("\\", "/").lower():
-                    continue
-                
-                if "launcher" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
-                
-                if "crs-" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
+                # if not show_console:
+                #     if not getattr(sys, 'frozen', False):  
+                #         # Falls als .py ausgeführt, direkt ohne Konsole starten
+                #         restart_program(with_console=False)
+                #     else:
+                #         restart_program_no_console()
+                # else:
+                #     if not gui:
+                #         start_gui()
+                if censor_mode:
+                    censoring()# Hier rufst du deine Funktion auf        
+            current_seen = set()
+            
+            for proc in psutil.process_iter(['pid', 'name', 'exe']):
+                try:
+                    
+                    failed = False
+                    exe_path = proc.info['exe']
+                    pid = proc.info['pid']
+                    name = proc.info['name']
 
-                if "crashpad_" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
-                
-                if "crashreport" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
-                
-                if "crashhandler" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
 
-                if "errorreport" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-
-                if "easyanticheat" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-                
-                if "uninst" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-                
-                if "unins0" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-
-                if "wallpaper32" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-
-                if "wallpaper64" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue                
-
-                if "unity.licensing" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-                
-                if "updater" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-
-                if "webhandler" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-
-                if "webhelper" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-                
-                if "weblauncher" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-                
-                if "wslservice" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-
-                if "ace-setup" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-
-                if "ace-service" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-                
-                if "unrealcefsubprocess" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-                
-                if "eadestager" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-                
-                if "sguard" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue               
-                
-                if "msedge" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-                if "gamebar" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue  
-                if "gamingservices" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue  
-                if "cortana" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue 
-                if "storedesktopextension" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue    
-                if "winstore.app" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue              
-                if "video.ui" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue              
-                if "calculatorapp" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue 
-                if "gamebarft" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue 
-                if "phoneexperiencehost" in exe_lower and exe_lower.endswith(".exe"):
-                    continue 
-
-                if "backgroundservice" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue                                
-                                    
-                if "vc_redist" in exe_lower and exe_lower.endswith(".exe"): 
-                    continue
-
-                if "easyanticheat" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
-
-                if "eac-eos" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
-                
-                if "cefsharp.browsersubprocess" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
-
-                if "upload_profile" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
-
-                if "unisdktools" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
-
-                if "game_graphics_setter" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
-
-                if "capturepro" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
-                
-                if "client_diagnose" in exe_lower and exe_lower.endswith(".exe"):
-                    continue                
-                
-                if "webview_support_browser" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
-
-                if "retroarch" in exe_lower and exe_lower.endswith(".exe"):
-                    continue
-                    if is_playnite_running() or game_set:
-                        continue
-
-                if exe_lower == "render.exe":
-                    continue
-                
-                if exe_lower == "marvel-win64-shipping.exe":
-                    continue
-                                    
-                if (("playnite.desktopapp" in exe_lower or "playnite.fullscreenapp" in exe_lower ) and exe_lower.endswith(".exe")):
-                    playnite_running = True
-                    if playnite_enabled:
-                        if not watcher_started:
-                            folder_path = os.path.dirname(exe_path)
-                            filepath = os.path.join(folder_path, "RunningGame.json")                        
-                            
-                            start_watcher()
-                            watcher_started = True
-                            game_started_event.clear()
-                            if language == 1:
-                                print(f"\n✅ Playnite erkannt: PID {pid} Path: {exe_path}\n")
-                            if language == 0:
-                                print(f"\n✅ Playnite detected: PID {pid} Path: {exe_path}\n")
-                                 
-                            print("-" * 90)
-                            if language == 1:           
-                                print("⌛ Warte auf GameStarted Event 🎮".center(82))
-                            if language == 0:
-                                print("⌛ Waiting on the GameStarted Event 🎮".center(80))
-                            print("-" * 90)
-                            waiting_for_game = True
-
-                        if waiting_for_game:                             
-                            while True:
-                                game_started_event.wait(timeout=1)
-                                # 1️⃣ Wenn Spiel gestartet wurde → weiter
-                                if game_started_event.is_set():
-                                    waiting_for_game = False
-                                    game_folder = latest_game_event['Name']
-                                    kick_game_folder = game_folder
-                                    exe_path = latest_game_event['Path']
-                                    game_set = True
-
-                                    if latest_game_event.get('Type') != "Emulator":
-                                        save_games_to_file = False
-
-                                    #print(f"🎮 Neuestes Spiel aus Playnite: {game_folder}")
-                                    break
-
-                                # 2️⃣ Wenn Playnite nicht mehr läuft → abbrechen
-                                if not is_playnite_running():
-                                    
-                                    waiting_for_game = False
-                                    game_set = False
-                                    Playnite_Game_Retry = True
-                                    Playnite_Game_Stopped = False
-                                    Playnite_exit = True
-                                    save_games_to_file = True
-                                    if watcher_started:
-                                        watcher_started = False
-                                        stop_watcher()
-                                    
-                                    break
-
-                            time.sleep(0.5)  # CPU-schonend
-                                                          
-                            if Playnite_exit:
-                                game_folder = "Playnite"
-                                continue    
-                            
-                        if game_set is not None:
-                            game_folder = latest_game_event['Name']
-                            kick_game_folder = game_folder
-                            exe_path = latest_game_event['Path']
-                            ##print(f"🎮 Spiel aus Playnite wird gesetzt: {game_folder}")
-                    else:
+                    
+                    # Sicherstellen, dass der Prozess ein valides exe_path hat und in allowed_paths liegt
+                    # Make sure process has an valid exe_path and is in allowed_paths
+                    if not exe_path or name in excluded_names:
                         continue
                     
-                if playnite_running == True and waiting_for_game == False:
-                    if not is_playnite_running():
-                        game_set = False
-                        Playnite_Game_Retry = True
-                        Playnite_Game_Stopped = False
-                        Playnite_exit = True
-                        save_games_to_file = True
-                        if watcher_started:
-                            watcher_started = False
-                            stop_watcher()             
+                    # Prüfen, ob der exe_path in allowed_paths ist
+                    normalized_exe_path = os.path.normcase(os.path.normpath(exe_path))
                 
-                if is_ue_or_known_exe_path(exe_path.lower()):
-                    game_folder = "Software and game development"
-                    kick_game_folder = "Software Development"
-              
-                else:    
-                    # Gültigen Root-Ordner finden
-                    # Find valid root folder
+                    normalized_allowed_paths = [os.path.normcase(os.path.normpath(path)) for path in allowed_paths]
+                    name_lower = name.lower()
                     
-                    root_folder = get_valid_root_folder(exe_path, allowed_paths, excluded_folders)
-
-    ##                if root_folder:
-    ##                    print(f"Root: {root_folder}")
-
-                    if not root_folder:
-                        continue  # Falls kein gültiger Root-Ordner gefunden wurde, überspringe diesen Prozess
-                                  # If no valid root folder found skip that process
-
-                    # Spielname extrahieren (Ordner der .exe)
-                    # Extrac gamename (Folder of .exe)
-                    if not game_set:
-                        game_folder = os.path.basename(root_folder)
-                        kick_game_folder = game_folder
-                        found_folder = game_folder
-
-##                print(f" Debug output game_folder: {game_folder}")
-                exe_lower = os.path.basename(exe_path).lower()
-                # launcher excludes
-
-                launcher_list = [
-                    "riot games",
-                    "battle.net",
-                    "electronic arts",
-                    "ubisoft game launcher",
-                    "origin games",
-                    "epic games",
-                    "ea desktop",
-                    "electronic arts",
-                    "steam"
-                ]
-                
-                
-
-                if game_folder.lower() in launcher_list:
-                    continue
-                
-                # Spezial Fälle für Emulator Games zum matchen
-                
-                if "digimon world 2003" in game_folder.lower():
-                    game_folder = "Digimon World 3"
-                    kick_game_folder = "Digimon World 3"
-
-                # Spezial Fälle um Twitch Kategorie richtig zu matchen            
-                # Edge cases setting game_folder forceful to get twitch match            
-                if "Intergrade" in game_folder:
-                    game_folder = remove_intergrade_from_folder(game_folder)
-                    kick_game_folder = game_folder
-
-                if is_ue_or_known_programming_folder(game_folder.lower()):
-                    game_folder = "Software and game development"                     
-                
-                if game_folder in gta5_variants:
-                    game_folder = "Grand Theft Auto V"
-                    kick_game_folder = game_folder
-
-                if game_folder in gta4_variants:
-                    game_folder = "Grand Theft Auto IV"
-                    kick_game_folder = game_folder
-
-                if game_folder == "Mass Effect Ultimate Edition":
-                    game_folder = "Mass Effect"
-                    kick_game_folder = game_folder
-
-                if game_folder == "5K":
-                    game_folder = "SCP: 5K"
-                    kick_game_folder = game_folder
+                    skip_path_check = name_lower in (
+                        'playnite.desktopapp.exe',
+                        'playnite.fullscreenapp.exe'
+                    )
                     
-                if game_folder == "Ride" and exe_lower in ("ride.exe", "ride-win64-shipping.exe"):
-                    game_folder = "RV There Yet?"
-                    kick_game_folder = "RV There Yet?"
 
-                ##if game_folder == "MarblesOnStream":
-                  ##  game_folder = "Marbles On Stream"
-
-
-
-                if "no mans sky" in game_folder.lower():
-                    game_folder = "No Man's Sky"
-                    kick_game_folder = game_folder
+                    if not skip_path_check:
+                        if not any(normalized_exe_path.startswith(path) for path in normalized_allowed_paths):
+    ##                        print(f"Prozess {name} mit exe_path {exe_path} ist nicht in allowed_paths.")
+                            continue  # Wenn der exe_path nicht in allowed_paths liegt, überspringe diesen Prozess
+                         
+                    exe_lower = os.path.basename(exe_path).lower()
                     
-                if "the jackbox party" in game_folder.lower():
-                    game_folder = "Jackbox Party Packs"
-                    kick_game_folder = game_folder
+                    #Überspringe verschiedene nicht gewollte Exe dateien
+                    #Skip not wanted exe files
+                    
+ 
+                    # Pfad-Patterns prüfen (z.B. obs studio, steamvr)
+                    if any(pattern in exe_path.replace("\\", "/").lower() for pattern in excluded_exe_patterns):
+                        continue
+                    
+                    # Exe-Name Contains prüfen
+                    if any(name in exe_lower for name in excluded_exe_names) and exe_lower.endswith(".exe"):
+                        continue
+                           
+                    # Exakte Exe-Namen prüfen
+                    if exe_lower in excluded_exe_exact:
+                        continue
+                    if "retroarch" in exe_lower and exe_lower.endswith(".exe"):
+                        continue
+                        if is_playnite_running() or game_set:
+                            continue
 
-                if "only up" in game_folder.lower():
-                    game_folder = "Only Up!"
-                    kick_game_folder = game_folder
-
-                if "palworld" in game_folder.lower():
-                    game_folder = "Palworld"
-                    kick_game_folder = game_folder
-
-                if "silent hill 2" in game_folder.lower():
-                    game_folder = "Silent Hill 2"
-                    kick_game_folder = game_folder
+                                       
+                    if (("playnite.desktopapp" in exe_lower or "playnite.fullscreenapp" in exe_lower ) and exe_lower.endswith(".exe")):
+                        playnite_running = True
+                        if playnite_enabled:
+                            if not watcher_started:
+                                folder_path = os.path.dirname(exe_path)
+                                filepath = os.path.join(folder_path, "RunningGame.json")                        
                                 
-                if game_folder.lower() == "repo":
-                    game_folder = "R.E.P.O."
-                    kick_game_folder = game_folder
-                    
-                if game_folder.lower() == "beast management":
-                    game_folder = "Project Unknown"
-                    kick_game_folder = game_folder
+                                start_watcher()
+                                watcher_started = True
+                                game_started_event.clear()
+                                if language == 1:
+                                    print(f"\n✅ Playnite erkannt: PID {pid} Path: {exe_path}\n")
+                                if language == 0:
+                                    print(f"\n✅ Playnite detected: PID {pid} Path: {exe_path}\n")
+                                    
+                                print("-" * 90)
+                                if language == 1:           
+                                    print("⌛ Warte auf GameStarted Event 🎮".center(82))
+                                if language == 0:
+                                    print("⌛ Waiting on the GameStarted Event 🎮".center(80))
+                                print("-" * 90)
+                                waiting_for_game = True
 
-                if game_folder.lower() == "sololv":
-                    game_folder = "Solo Leveling: Arise"
-                    kick_game_folder = game_folder
-                    
-                if game_folder.lower() == "abinfinite":
-                    game_folder = "Arena Breakout: Infinite"
-                    kick_game_folder = game_folder
-                    
-                if "world of warcraft" in game_folder.lower():
-                    game_folder = "World of Warcraft"
-                    kick_game_folder = game_folder
+                            if waiting_for_game:                             
+                                while True:
+                                    game_started_event.wait(timeout=1)
+                                    # 1️⃣ Wenn Spiel gestartet wurde → weiter
+                                    if game_started_event.is_set():
+                                        waiting_for_game = False
+                                        if game_folder is not None and game_folder != latest_game_event['Name']:
+                                            if not prev_game_set:  # ← nur setzen wenn noch nicht gesetzt
+                                                previous_game_folder = latest_game_event['Name']
+                                                prev_game_set = True
+                                            
+                                        game_folder = latest_game_event['Name']
+                                        kick_game_folder = game_folder
+                                        exe_path = latest_game_event['Path']
+                                        game_set = True
 
-                if "spyro" in game_folder.lower():
-                    game_folder = "Spyro The Dragon"
-                    kick_game_folder = game_folder
+                                        if latest_game_event.get('Type') != "Emulator":
+                                            save_games_to_file = False
 
-                if "final fantasy xiv" in game_folder.lower():
-                    game_folder = "Final Fantasy XIV Online"
-                    kick_game_folder = game_folder
+                                        #print(f"🎮 Neuestes Spiel aus Playnite: {game_folder}")
+                                        break
 
-                if game_folder == "Counter-Strike Global Offensive":
-                    game_folder = "Counter-Strike"
-                    kick_game_folder = "Counter-Strike 2"
-                    
-                if game_folder == "rocketleague":
-                    game_folder = "Rocket League"
-                    kick_game_folder = game_folder
-                    
-                if game_folder == "the witcher 2":
-                    game_folder = "The Witcher 2: Assassins of Kings"
-                    
-                if game_folder == "Fears to Fathom - Episode 1":
-                    game_folder = "Fears to Fathom: Home Alone"
-                    kick_game_folder = game_folder
-                    
-                if game_folder == "Fears to Fathom - Episode 2":
-                    game_folder = "Fears to Fathom: Norwood Hithhike"
-                    kick_game_folder = game_folder
-
-                if game_folder == "Fears to Fathom - Episode 3":
-                    game_folder = "Fears to Fathom: Carson House"
-                    kick_game_folder = game_folder
-                    
-                if game_folder == "Fears to Fathom - Episode 4":
-                    game_folder = "Fears to Fathom: Ironbark Lookout"
-                    kick_game_folder = game_folder
-                    
-                if game_folder == "Fears to Fathom - Episode 5":
-                    game_folder = "Fears to Fathom: Woodbury Getaway"
-                    kick_game_folder = game_folder
-                    
-                if game_folder == "Fears to Fathom - Episode 6":
-                    game_folder = "Fears to Fathom: Scratch Creek"
-                    kick_game_folder = game_folder
-                    
-                if game_folder.lower() == "exit8":
-                    game_folder = "the exit 8"
-                    kick_game_folder = game_folder
-                    
-                if game_folder.lower() == "votvgame":
-                    game_folder = "Voices of the Void"
-                    kick_game_folder = game_folder        
-        
-                if game_folder == "votv":
-                    game_folder = "Voices of the Void"
-                    kick_game_folder = game_folder
-                    
-                if game_folder == "Oblivion Remastered":
-                    game_folder = "The Elder Scrolls IV: Oblivion Remastered"
-                    kick_game_folder = game_folder
-                    
-                if "retroarch" in game_folder.lower():
-                    game_folder = "Retro"
-                    kick_game_folder = "Retro Games"
-
-                if "runelite" in game_folder.lower():
-                    game_folder = "Old School RuneScape"
-                    kick_game_folder = game_folder
-
-                # Entfernt alle gängigen Test-Endungen wie Demo, Alpha, Beta, Test (mit Klammern, Bindestrichen, Version etc.)
-                # Liste möglicher Suffixe
-                suffixes = ("demo", "alpha", "beta", "test")
-
-                # Nur ersetzen, wenn einer dieser Begriffe im Namen vorkommt
-                if any(suffix in game_folder.lower() for suffix in suffixes):
-                    game_folder = re.sub(
-                        r'[\s\-_()]*\b(?:demo|alpha|beta|test)(?:[\s\-_()]*version|\s*v?\d+)?[\s\-_()]*$',
-                        '',
-                        game_folder,
-                        flags=re.IGNORECASE
-                    ).strip()
-                    kick_game_folder = game_folder
-
+                                    # 2️⃣ Wenn Playnite nicht mehr läuft → abbrechen
+                                    if not is_playnite_running():
                                         
-                # Eindeutige Kombination aus PID und exe_path (damit `current_seen` funktioniert)
-                # Unique combination of PID and exe_path (so current_seen works)
-                unique_id = (pid, exe_path)
-                current_seen.add(unique_id)
-                path_norm = os.path.normpath(exe_path)
+                                        waiting_for_game = False
+                                        game_set = False
+                                        Playnite_Game_Retry = True
+                                        Playnite_Game_Stopped = False
+                                        Playnite_exit = True
+                                        save_games_to_file = True
+                                        if watcher_started:
+                                            watcher_started = False
+                                            stop_watcher()
+                                        
+                                        break
 
-                # Prüfen, ob das Spiel bereits in der JSON-Datei vorhanden ist
-                # Check if Game is already saved in the local Database
-                saved_games = load_saved_games()
-                game_data = next((game for game in saved_games if game["Game"] == game_folder), None)
-                
-                if game_data and kick_enabled and (unique_id not in seen_processes or Playnite_Game_Retry):
-                    kick_id = str(game_data.get("Kick Category ID") or "").strip()
-                    kick_name = str(game_data.get("Kick Category Name") or "").strip()
-
-                    kick_missing = (kick_name == "")
-                    Playnite_Game_Retry = False
-                    
-                # Spiel gilt nur als in DB vorhanden, wenn game_data existiert und Kick nicht fehlt
-                if game_data and game_folder not in displayed_games and not kick_missing:
-
-                    # Spiel ist bereits in der JSON-Datei, gib die Twitch- und Kick-Daten aus
-                    if language == 1:
-                        print(f"\n✅ Gestartet: PID {pid}, Spiel: {game_folder} Path: {path_norm}\n")
-                        print("-" * 90)
-                        print(f"   🎮 Gefundene Twitch-Kategorie für '{game_folder}' in lokaler Datenbank:")
-                        print(f"   📝 {game_data['Twitch Category Name']} (ID: {game_data['Twitch Category ID']})")
-                        print(f"   📸 Twitch Box Art: {game_data['Twitch Box Art']}")
-                        if kick_enabled and "Kick Category Name" in game_data:
-                            print(f"   🟢 Kick Kategorie: {game_data['Kick Category Name']} (ID: {game_data['Kick Category ID']})")
-                        print("-" * 90)
-
-                    if language == 0:
-                        print(f"\n✅ Started: PID {pid}, Game: {game_folder} Path: {path_norm}\n")
-                        print("-" * 90)
-                        print(f"   🎮 Found Twitch category for '{game_folder}' in local database:")
-                        print(f"   📝 {game_data['Twitch Category Name']} (ID: {game_data['Twitch Category ID']})")
-                        print(f"   📸 Twitch Box Art: {game_data['Twitch Box Art']}")
-                        if kick_enabled and "Kick Category Name" in game_data:
-                            print(f"   🟢 Kick category: {game_data['Kick Category Name']} (ID: {game_data['Kick Category ID']})")
-                        print("-" * 90)
-
-                    # Füge das Spiel der ausgegebenen Liste hinzu, um es nicht erneut anzuzeigen
-                    # Add game to outputted list, so it does not show again                
-                    category_name = game_data['Twitch Category Name']
-                    if kick_enabled:
-                        kick_category_name = game_data['Kick Category Name']
-                    displayed_games.add(game_folder)
-                    if is_streamerbot_running():
-                        if category_set_already != category_name:
-                            if kick_enabled:
-                                category_change(category_name, kick_category_name)
-                            else:
-                                category_change(category_name)
-                            category_set_already = category_name
-                            if message:
-                                if kick_enabled:
-                                    send_message(game_folder, category_name, kick_category_name, kick_failed=False)
-                                else:
-                                    send_message(game_folder, category_name)
+                                time.sleep(0.5)  # CPU-schonend
+                                                            
+                                if Playnite_exit:
+                                    game_folder = "Playnite"
+                                    continue    
                                 
+                            if game_set is not None:
+                                if game_folder is not None and game_folder != latest_game_event['Name']:
+                                    if not prev_game_set:  # ← nur setzen wenn noch nicht gesetzt
+                                        previous_game_folder = latest_game_event['Name']
+                                        prev_game_set = True
+                                game_folder = latest_game_event['Name']
+                                kick_game_folder = game_folder
+                                exe_path = latest_game_event['Path']
+                                ##print(f"🎮 Spiel aus Playnite wird gesetzt: {game_folder}")
+                        else:
+                            continue
+                        
+                    if playnite_running == True and waiting_for_game == False:
+                        
+                        if not is_playnite_running():
+                            game_set = False
+                            Playnite_Game_Retry = True
+                            Playnite_Game_Stopped = False
+                            Playnite_exit = True
+                            save_games_to_file = True
+                            if watcher_started:
+                                watcher_started = False
+                                stop_watcher()             
                     
-                
-                elif not game_data or kick_missing:
+                    if is_ue_or_known_exe_path(exe_path.lower()):
+                        if game_folder is not None and game_folder != "Software and game development":
+                            if not prev_game_set:
+                                previous_game_folder = game_folder
+                                prev_game_set = True
+                        
 
-                    if not displayed_warning:
+                        game_folder = "Software and game development"
+                        kick_game_folder = "Software Development"
+                        if not prev_game_set:
+                            previous_game_folder = game_folder
+                            prev_game_set = True
+                            
+                        if game_folder in displayed_games:  # ← bereits erkannt, überspringen
+                            unique_id = (pid, exe_path)
+                            current_seen.add(unique_id)
+                            process_to_game.setdefault(unique_id, game_folder)
+                            continue  # ← rest des Loops überspringen
+                
+                    else:    
+                        # Gültigen Root-Ordner finden
+                        # Find valid root folder
+                        
+                        root_folder = get_valid_root_folder(exe_path, allowed_paths, excluded_folders)
+                        
+        ##                if root_folder:
+        ##                    print(f"Root: {root_folder}")
+
+                        if not root_folder:
+                            continue  # Falls kein gültiger Root-Ordner gefunden wurde, überspringe diesen Prozess
+                                    # If no valid root folder found skip that process
+
+                        # Spielname extrahieren (Ordner der .exe)
+                        # Extrac gamename (Folder of .exe)
+                        if not game_set:
+                            #game_folder = os.path.basename(root_folder)
+                            new_folder = os.path.basename(root_folder)
+                            #if game_folder is not None and game_folder != new_folder:
+                            if not prev_game_set:  # ← nur setzen wenn noch nicht gesetzt
+                                previous_game_folder = new_folder
+                                prev_game_set = True
+
+                            game_folder = new_folder
+                            kick_game_folder = game_folder
+                            found_folder = game_folder
+                            
+
+    ##                print(f" Debug output game_folder: {game_folder}")
+                    exe_lower = os.path.basename(exe_path).lower()
+                    # launcher excludes
+
+                    launcher_list = [
+                        "riot games",
+                        "battle.net",
+                        "electronic arts",
+                        "ubisoft game launcher",
+                        "origin games",
+                        "epic games",
+                        "ea desktop",
+                        "electronic arts",
+                        "steam"
+                    ]
+                    
+                    
+
+                    if game_folder.lower() in launcher_list:
+                        continue
+                    
+                    # Spezial Fälle für Emulator Games zum matchen
+                    
+                    for mapping in game_name_mappings:
+                        if mapping["contains"] in game_folder.lower():
+                            game_folder = mapping["result"]
+                            kick_game_folder = mapping.get("kick_result", game_folder)
+                            break
+
+                    for mapping in game_name_exact:
+                        if mapping["match"] == game_folder.lower():
+                            game_folder = mapping["result"]
+                            kick_game_folder = mapping.get("kick_result", game_folder)
+                            break          
+                        
+
+                    # Spezial Fälle um Twitch Kategorie richtig zu matchen            
+                    # Edge cases setting game_folder forceful to get twitch match            
+                    if "Intergrade" in game_folder:
+                        game_folder = remove_intergrade_from_folder(game_folder)
+                        kick_game_folder = game_folder
+
+                    if is_ue_or_known_programming_folder(game_folder.lower()):
+                        game_folder = "Software and game development"                     
+                                    
+                    if game_folder in gta5_variants:
+                        game_folder = "Grand Theft Auto V"
+                        kick_game_folder = game_folder
+
+                    if game_folder in gta4_variants:
+                        game_folder = "Grand Theft Auto IV"
+                        kick_game_folder = game_folder
+
+                    # Entfernt alle gängigen Test-Endungen wie Demo, Alpha, Beta, Test (mit Klammern, Bindestrichen, Version etc.)
+                    # Liste möglicher Suffixe
+                    suffixes = ("demo", "alpha", "beta", "test")
+
+                    # Nur ersetzen, wenn einer dieser Begriffe im Namen vorkommt
+                    if any(suffix in game_folder.lower() for suffix in suffixes):
+                        game_folder = re.sub(
+                            r'[\s\-_()]*\b(?:demo|alpha|beta|test)(?:[\s\-_()]*version|\s*v?\d+)?[\s\-_()]*$',
+                            '',
+                            game_folder,
+                            flags=re.IGNORECASE
+                        ).strip()
+                        kick_game_folder = game_folder
+
+                                            
+                    # Eindeutige Kombination aus PID und exe_path (damit `current_seen` funktioniert)
+                    # Unique combination of PID and exe_path (so current_seen works)
+                    unique_id = (pid, exe_path)
+                    # if not seen_processes or any(path == exe_path for _, path in seen_processes):
+                    #     current_seen.add(unique_id)
+                    #     process_to_game.setdefault(unique_id, game_folder)
+                    
+                    
+
+                    if unique_id in seen_processes:
+                        current_seen.add(unique_id)
+                        process_to_game.setdefault(unique_id, game_folder)                
+                    
+                        #continue
+                    #current_seen.add(unique_id)
+                    path_norm = os.path.normpath(exe_path)
+                    #process_to_game[unique_id] = game_folder
+
+                    # Prüfen, ob das Spiel bereits in der JSON-Datei vorhanden ist
+                    # Check if Game is already saved in the local Database
+                    saved_games = load_saved_games()
+                    game_data = next((game for game in saved_games if game["Game"] == game_folder), None)
+                    
+                    if game_data and kick_enabled and (unique_id not in seen_processes or Playnite_Game_Retry):
+                        kick_id = str(game_data.get("Kick Category ID") or "").strip()
+                        kick_name = str(game_data.get("Kick Category Name") or "").strip()
+
+                        kick_missing = (kick_name == "")
+                        Playnite_Game_Retry = False
+                        
+                    # Spiel gilt nur als in DB vorhanden, wenn game_data existiert und Kick nicht fehlt
+                    if game_data and game_folder not in displayed_games and not kick_missing:
+
+                        # Spiel ist bereits in der JSON-Datei, gib die Twitch- und Kick-Daten aus
                         if language == 1:
-                            print(f"\n✅ Gestartet: PID {pid}, Spiel: {game_folder}, Path: {path_norm}\n")
+                            print(f"\n✅ Gestartet: PID {pid}, Spiel: {game_folder} Path: {path_norm}\n")
+                            print("-" * 90)
+                            print(f"   🎮 Gefundene Twitch-Kategorie für '{game_folder}' in lokaler Datenbank:")
+                            print(f"   📝 {game_data['Twitch Category Name']} (ID: {game_data['Twitch Category ID']})")
+                            print(f"   📸 Twitch Box Art: {game_data['Twitch Box Art']}")
+                            if kick_enabled and "Kick Category Name" in game_data:
+                                print(f"   🟢 Kick Kategorie: {game_data['Kick Category Name']} (ID: {game_data['Kick Category ID']})")
+                            print("-" * 90)
 
                         if language == 0:
-                            print(f"\n✅ Started: PID {pid}, Game: {game_folder}, Path: {path_norm}\n")
+                            print(f"\n✅ Started: PID {pid}, Game: {game_folder} Path: {path_norm}\n")
+                            print("-" * 90)
+                            print(f"   🎮 Found Twitch category for '{game_folder}' in local database:")
+                            print(f"   📝 {game_data['Twitch Category Name']} (ID: {game_data['Twitch Category ID']})")
+                            print(f"   📸 Twitch Box Art: {game_data['Twitch Box Art']}")
+                            if kick_enabled and "Kick Category Name" in game_data:
+                                print(f"   🟢 Kick category: {game_data['Kick Category Name']} (ID: {game_data['Kick Category ID']})")
+                            print("-" * 90)
 
-                    if not only_local_db:
-                        
-                        # Twitch-Kategorie suchen
-                        # Search Twitch Category
-                        categories = search_twitch_category(token, game_folder)
-##                        print(categories)
-                        
-                        # Speicher die Spiel- und Twitch-Daten in einem Dictionary
-                        # Save game and twitch data in a dictionary
-                        if categories:
-                            
-                            best_match = False
-                            highest_score = 0
-                            
-                            if game_data:
-                                best_match = {
-                                    "name": game_data["Twitch Category Name"],
-                                    "id": game_data["Twitch Category ID"],
-                                    "box_art_url": game_data["Twitch Box Art"]
-                                }
-                                category = best_match      
-                            else:
-                            
-                                # Zuerst exakte Übereinstimmung prüfen
-                                for category in categories:
-                                    if game_folder.lower() == category["name"].lower():
-                                        best_match = category
-                                        break  # Falls exakter Match gefunden, abbrechen / break if exact match
-                                    
-                                # Falls kein exakter Match gefunden, Fuzzy-Matching durchführen
-                                # If no exact match make fuzzy match
-                                if not best_match:
-                                    for category in categories:
-                                        
-                                        score = fuzz.ratio(game_folder.lower(), category["name"].lower(), score_cutoff=threshold)
-                                        if score is not None and score > highest_score:  # Prüfe Threshold automatisch
-                                            highest_score = score
-                                            best_match = category
-                                        else:
-                                            game_splitted = game_folder.lower() if game_folder.isupper() else re.sub(r'(?<!^)(?=[A-Z])', ' ', game_folder).lower()
-                                            # Zweiter Versuch mit toleranterem Matching
-                                            fallback_score = fuzz.token_sort_ratio(game_splitted, category["name"].lower())
-    ##                                        print(f"Fallback ratio: {fallback_score}")
-                                            if fallback_score > threshold and fallback_score > highest_score:
-                                                final_check_score = fuzz.ratio(game_splitted, category["name"].lower())
-                                                if final_check_score > threshold:
-                                                    highest_score = fallback_score
-                                                    best_match = category                                      
-
-                            
-                           
-                            if kick_enabled:
-                                
-                                kick_categories = search_kick_category(kick_token, kick_game_folder)
-                                if kick_categories:
-                                    kick_best_match = None
-                                    highest_score_kick = 0
-
-                                    # Exakte Übereinstimmung prüfen
-                                    for kick_category in kick_categories:
-                                        if kick_game_folder.lower() == kick_category["name"].lower():
-                                            kick_best_match = kick_category
-                                            break
-
-                                    # Falls kein exakter Match, Fuzzy-Matching
-                                    if not kick_best_match:
-                                        for kick_category in kick_categories:
-                                            score = fuzz.ratio(kick_game_folder.lower(), kick_category["name"].lower(), score_cutoff=threshold)
-                                            if score is not None and score > highest_score_kick:
-                                                highest_score_kick = score
-                                                kick_best_match = kick_category
-                                            else:
-                                                kick_game_splitted = (
-                                                    kick_game_folder.lower()
-                                                    if kick_game_folder.isupper()
-                                                    else re.sub(r'(?<!^)(?=[A-Z])', ' ', kick_game_folder).lower()
-                                                )
-                                                fallback_score = fuzz.token_sort_ratio(kick_game_splitted, kick_category["name"].lower())
-                                                if fallback_score > threshold and fallback_score > highest_score_kick:
-                                                    final_check_score = fuzz.ratio(kick_game_splitted, kick_category["name"].lower())
-                                                    if final_check_score > threshold:
-                                                        highest_score_kick = fallback_score
-                                                        kick_best_match = kick_category
-
-                            
-                            if best_match:
-                                if game_folder == "Silent Hill 2":
-                                    game_data = {
-                                        "Game": game_folder,
-                                        "Path": os.path.normpath(exe_path),  
-                                        "Twitch Category Name": best_match["name"],
-                                        "Twitch Category ID": "2058570718",
-                                        "Twitch Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/2058570718_IGDB-285x380.jpg"
-                                    }
-                                elif game_folder == "Spyro The Dragon":
-                                    category['id'] = "1608308954"
-                                    game_data = {
-                                        "Game": game_folder,
-                                        "Path": os.path.normpath(exe_path),  
-                                        "Twitch Category Name": best_match["name"],
-                                        "Twitch Category ID": category['id'],
-                                        "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
-                                    }
-
-                                elif game_folder == "Dispatch":
-                                    category['id'] = "602959317"
-                                    game_data = {
-                                        "Game": game_folder,
-                                        "Path": os.path.normpath(exe_path),  
-                                        "Twitch Category Name": best_match["name"],
-                                        "Twitch Category ID": category['id'],
-                                        "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
-                                    }
-
-                                elif game_folder == "Software and game development":
-                                    game_data = {
-                                        "Game": game_folder,
-                                        "Path": "Not available in this Category",  
-                                        "Twitch Category Name": best_match["name"],
-                                        "Twitch Category ID": best_match["id"],
-                                        "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
-                                    }                                    
+                        # Füge das Spiel der ausgegebenen Liste hinzu, um es nicht erneut anzuzeigen
+                        # Add game to outputted list, so it does not show again   
+                        current_seen.add(unique_id)             
+                        process_to_game.setdefault(unique_id, game_folder)
+                        category_name = game_data['Twitch Category Name']
+                        if kick_enabled:
+                            kick_category_name = game_data['Kick Category Name']
+                        displayed_games.add(game_folder)
+                        if is_streamerbot_running():
+                            if category_set_already != category_name:
+                                if kick_enabled:
+                                    category_change(category_name, kick_category_name)
                                 else:
-                                    game_data = {
-                                        "Game": game_folder,
-                                        "Path": os.path.normpath(exe_path),  
-                                        "Twitch Category Name": best_match["name"],
-                                        "Twitch Category ID": best_match["id"],
-                                        "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
-                                    }
-                                    
-                                if kick_enabled:                                # Kick-Ergebnis ergänzen
-                                    if kick_best_match:
-                                        game_data["Kick Category Name"] = kick_best_match["name"]
-                                        game_data["Kick Category ID"] = str(kick_best_match["id"])
-                                        game_data["Kick Thumbnail"] = kick_best_match["thumbnail"]
-                                        kick_missing = False
+                                    category_change(category_name)
+                                category_set_already = category_name
+                                if message:
+                                    if kick_enabled:
+                                        send_message(game_folder, category_name, kick_category_name, kick_failed=False)
                                     else:
-                                        kick_best_match = {
-                                            "name": "No Match",
-                                            "id": "No Match",
-                                            "thumbnail": "No Match"
+                                        send_message(game_folder, category_name)
+                                    
+                        
+                    
+                    elif not game_data or kick_missing:
+
+                        if not displayed_warning:
+                            if language == 1:
+                                print(f"\n✅ Gestartet: PID {pid}, Spiel: {game_folder}, Path: {path_norm}\n")
+
+                            if language == 0:
+                                print(f"\n✅ Started: PID {pid}, Game: {game_folder}, Path: {path_norm}\n")
+
+                        if not only_local_db:
+                            
+                            # Twitch-Kategorie suchen
+                            # Search Twitch Category
+                            categories = search_twitch_category(token, game_folder)
+    ##                        print(categories)
+                            if not categories:
+
+                                if not alternatives_tried:
+                                    window_title = get_window_title_by_exe(pid) 
+                                    categories_window_title = search_twitch_category(token, window_title) 
+                                    if not categories_window_title:
+                                        
+                                        wiki_name = search_wikipedia_game(game_folder)
+
+                                        if wiki_name != window_title:
+                                                                                
+                                            categories = search_twitch_category(token, wiki_name)  
+                                            alternatives_tried = True
+                                        else:
+                                            alternatives_tried = True  
+                                            
+                                    else:
+                                        categories = categories_window_title                         
+                                                        
+                            # Speicher die Spiel- und Twitch-Daten in einem Dictionary
+                            # Save game and twitch data in a dictionary
+                            if categories:
+                                
+                                best_match = False
+                                highest_score = 0
+                                
+                                if game_data:
+                                    best_match = {
+                                        "name": game_data["Twitch Category Name"],
+                                        "id": game_data["Twitch Category ID"],
+                                        "box_art_url": game_data["Twitch Box Art"]
+                                    }
+                                    category = best_match      
+                                else:
+                                
+                                    # Zuerst exakte Übereinstimmung prüfen
+                                    for category in categories:
+                                        if game_folder.lower() == category["name"].lower():
+                                            best_match = category
+                                            break  # Falls exakter Match gefunden, abbrechen / break if exact match
+                                        
+                                    # Falls kein exakter Match gefunden, Fuzzy-Matching durchführen
+                                    # If no exact match make fuzzy match
+                                    if not best_match:
+                                        for category in categories:
+                                            
+                                            score = fuzz.ratio(game_folder.lower(), category["name"].lower(), score_cutoff=threshold)
+                                            if score is not None and score > highest_score:  # Prüfe Threshold automatisch
+                                                highest_score = score
+                                                best_match = category
+                                            else:
+                                                game_splitted = game_folder.lower() if game_folder.isupper() else re.sub(r'(?<!^)(?=[A-Z])', ' ', game_folder).lower()
+                                                # Zweiter Versuch mit toleranterem Matching
+                                                fallback_score = fuzz.token_sort_ratio(game_splitted, category["name"].lower())
+        ##                                        print(f"Fallback ratio: {fallback_score}")
+                                                if fallback_score > threshold and fallback_score > highest_score:
+                                                    final_check_score = fuzz.ratio(game_splitted, category["name"].lower())
+                                                    if final_check_score > threshold:
+                                                        highest_score = fallback_score
+                                                        best_match = category                                      
+
+                                
+                            
+                                if kick_enabled:
+                                    
+                                    kick_categories = search_kick_category(kick_token, kick_game_folder)
+                                    
+                                    if not kick_categories:
+                                        
+                                        if not alternatives_tried_kick:
+                                            kick_categories_window_title = search_kick_category(kick_token, window_title)                          
+                                            if not kick_categories_window_title:
+                                                if wiki_name != window_title:
+                                                    kick_categories = search_kick_category(kick_token, wiki_name)
+                                                    alternatives_tried_kick = True
+                                                else:
+                                                    alternatives_tried_kick = True
+                                            else:
+                                                kick_categories = kick_categories_window_title
+
+                                    if kick_categories:
+                                        kick_best_match = None
+                                        highest_score_kick = 0
+
+                                        # Exakte Übereinstimmung prüfen
+                                        for kick_category in kick_categories:
+                                            if kick_game_folder.lower() == kick_category["name"].lower():
+                                                kick_best_match = kick_category
+                                                break
+
+                                        # Falls kein exakter Match, Fuzzy-Matching
+                                        if not kick_best_match:
+                                            for kick_category in kick_categories:
+                                                score = fuzz.ratio(kick_game_folder.lower(), kick_category["name"].lower(), score_cutoff=threshold)
+                                                if score is not None and score > highest_score_kick:
+                                                    highest_score_kick = score
+                                                    kick_best_match = kick_category
+                                                else:
+                                                    kick_game_splitted = (
+                                                        kick_game_folder.lower()
+                                                        if kick_game_folder.isupper()
+                                                        else re.sub(r'(?<!^)(?=[A-Z])', ' ', kick_game_folder).lower()
+                                                    )
+                                                    fallback_score = fuzz.token_sort_ratio(kick_game_splitted, kick_category["name"].lower())
+                                                    if fallback_score > threshold and fallback_score > highest_score_kick:
+                                                        final_check_score = fuzz.ratio(kick_game_splitted, kick_category["name"].lower())
+                                                        if final_check_score > threshold:
+                                                            highest_score_kick = fallback_score
+                                                            kick_best_match = kick_category
+
+                                
+                                if best_match:
+                                    if game_folder == "Silent Hill 2":
+                                        game_data = {
+                                            "Game": game_folder,
+                                            "Path": os.path.normpath(exe_path),  
+                                            "Twitch Category Name": best_match["name"],
+                                            "Twitch Category ID": "2058570718",
+                                            "Twitch Box Art": "https://static-cdn.jtvnw.net/ttv-boxart/2058570718_IGDB-285x380.jpg"
                                         }
-                                        kick_missing = False                                  
+                                    elif game_folder == "Spyro The Dragon":
+                                        category['id'] = "1608308954"
+                                        game_data = {
+                                            "Game": game_folder,
+                                            "Path": os.path.normpath(exe_path),  
+                                            "Twitch Category Name": best_match["name"],
+                                            "Twitch Category ID": category['id'],
+                                            "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
+                                        }
+
+                                    elif game_folder == "Dispatch":
+                                        category['id'] = "602959317"
+                                        game_data = {
+                                            "Game": game_folder,
+                                            "Path": os.path.normpath(exe_path),  
+                                            "Twitch Category Name": best_match["name"],
+                                            "Twitch Category ID": category['id'],
+                                            "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
+                                        }
+
+                                    elif game_folder == "Software and game development":
+                                        game_data = {
+                                            "Game": game_folder,
+                                            "Path": "Not available in this Category",  
+                                            "Twitch Category Name": best_match["name"],
+                                            "Twitch Category ID": best_match["id"],
+                                            "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
+                                        }                                    
+                                    else:
+                                        game_data = {
+                                            "Game": game_folder,
+                                            "Path": os.path.normpath(exe_path),  
+                                            "Twitch Category Name": best_match["name"],
+                                            "Twitch Category ID": best_match["id"],
+                                            "Twitch Box Art": get_largest_box_art_url(category['box_art_url'], category['id'], width, height)
+                                        }
+                                        
+                                    if kick_enabled:                                # Kick-Ergebnis ergänzen
+                                        if kick_best_match:
+                                            game_data["Kick Category Name"] = kick_best_match["name"]
+                                            game_data["Kick Category ID"] = str(kick_best_match["id"])
+                                            game_data["Kick Thumbnail"] = kick_best_match["thumbnail"]
+                                            kick_missing = False
+                                        else:
+                                            kick_best_match = {
+                                                "name": "No Match",
+                                                "id": "No Match",
+                                                "thumbnail": "No Match"
+                                            }
+                                            kick_missing = False                                  
+                                            if language == 1:
+                                                print(f"⚠️ Keine Kick-Kategorie für '{kick_game_folder}' gefunden.")
+                                                if not show_console:
+                                                    start_logging()
+                                                    logging.info(f"⚠️ Keine Kick-Kategorie für '{kick_game_folder}' gefunden.")
+                                                    logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
+                                            if language == 0:
+                                                print(f"⚠️ No Kick Category found for '{kick_game_folder}'.")
+                                                if not show_console:
+                                                    start_logging()
+                                                    logging.info(f"⚠️ No Kick Category found for '{kick_game_folder}'.")
+                                                    logging.info(f"⚠ Path from which game name got extracted '{path_norm}")
+                                            kick_failed = True
+                                
+                                    saved_games.append(game_data)
+                                    current_seen.add(unique_id)
+                                    process_to_game.setdefault(unique_id, game_folder)
+
+                                    # Ausgabe der gespeicherten Daten, aber nur einmal
+                                    # Output data only once
+                                    if game_folder not in displayed_games:
                                         if language == 1:
-                                            print(f"⚠️ Keine Kick-Kategorie für '{kick_game_folder}' gefunden.")
+                                            print("-" * 90)
+                                            print(f"   🎮 Gefundene Twitch-Kategorie für '{game_folder}':")
+                                            print(f"   📝 {best_match['name']} (ID: {best_match['id']})")
+                                            print(f"   📸 Twitch Box Art: {get_largest_box_art_url(best_match['box_art_url'], best_match['id'], width, height)}")
+                                            if kick_enabled:
+                                                print(f"   🟢 Kick Kategorie: {kick_best_match['name']} (ID: {kick_best_match['id']})")
+                                            print("-" * 90)
+
+                                        if language == 0:
+                                            print("-" * 90) 
+                                            print(f"   🎮 Found Twitch category for '{game_folder}':")
+                                            print(f"   📝 {best_match['name']} (ID: {best_match['id']})")
+                                            print(f"   📸 Twitch Box Art: {get_largest_box_art_url(best_match['box_art_url'], best_match['id'], width, height)}")
+                                            if kick_enabled:
+                                                print(f"   🟢 Kick Category: {kick_best_match['name']} (ID: {kick_best_match['id']})")
+                                            print("-" * 90)
+
+                                        category_name = best_match['name']
+                                        if kick_enabled:
+                                            kick_category_name = kick_best_match['name']
+                                        displayed_games.add(game_folder)
+                                        first_save = True
+                                        if is_streamerbot_running():
+                                            if category_set_already != category_name:
+                                                if kick_enabled:
+                                                    category_change(category_name, kick_category_name)
+                                                else:
+                                                    category_change(category_name)
+                                                category_set_already = category_name
+                                                if message:
+                                                    if kick_enabled:
+                                                        if kick_failed:
+                                                            send_message(game_folder, category_name, kick_category_name, kick_failed=True) 
+                                                        else:                                               
+                                                            send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                                    else:
+                                                        send_message(game_folder, category_name)
+                                else:
+                                    if not displayed_warning:
+                                        if language == 1:
+                                            print(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden.")
                                             if not show_console:
                                                 start_logging()
-                                                logging.info(f"⚠️ Keine Kick-Kategorie für '{kick_game_folder}' gefunden.")
+                                                logging.info(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden.")
                                                 logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
                                         if language == 0:
-                                            print(f"⚠️ No Kick Category found for '{kick_game_folder}'.")
+                                            print(f"⚠️ No Twitch Category found for '{game_folder}'.")
                                             if not show_console:
                                                 start_logging()
-                                                logging.info(f"⚠️ No Kick Category found for '{kick_game_folder}'.")
+                                                logging.info(f"⚠️ No Twitch Category found for '{game_folder}'.")
                                                 logging.info(f"⚠ Path from which game name got extracted '{path_norm}")
-                                        kick_failed = True
-                            
-                                saved_games.append(game_data)
-
-                                # Ausgabe der gespeicherten Daten, aber nur einmal
-                                # Output data only once
-                                if game_folder not in displayed_games:
-                                    if language == 1:
-                                        print("-" * 90)
-                                        print(f"   🎮 Gefundene Twitch-Kategorie für '{game_folder}':")
-                                        print(f"   📝 {best_match['name']} (ID: {best_match['id']})")
-                                        print(f"   📸 Twitch Box Art: {get_largest_box_art_url(best_match['box_art_url'], best_match['id'], width, height)}")
-                                        if kick_enabled:
-                                            print(f"   🟢 Kick Kategorie: {kick_best_match['name']} (ID: {kick_best_match['id']})")
-                                        print("-" * 90)
-
-                                    if language == 0:
-                                        print("-" * 90) 
-                                        print(f"   🎮 Found Twitch category for '{game_folder}':")
-                                        print(f"   📝 {best_match['name']} (ID: {best_match['id']})")
-                                        print(f"   📸 Twitch Box Art: {get_largest_box_art_url(best_match['box_art_url'], best_match['id'], width, height)}")
-                                        if kick_enabled:
-                                            print(f"   🟢 Kick Category: {kick_best_match['name']} (ID: {kick_best_match['id']})")
-                                        print("-" * 90)
-
-                                    category_name = best_match['name']
-                                    if kick_enabled:
-                                        kick_category_name = kick_best_match['name']
-                                    displayed_games.add(game_folder)
-                                    first_save = True
-                                    if is_streamerbot_running():
-                                        if category_set_already != category_name:
+                                        
+                                        displayed_warning = True
+                                        failed = True
+                                        if message:
                                             if kick_enabled:
-                                                category_change(category_name, kick_category_name)
+                                                send_message(game_folder, category_name, kick_category_name)
                                             else:
-                                                category_change(category_name)
-                                            category_set_already = category_name
-                                            if message:
-                                                if kick_enabled:
-                                                    if kick_failed:
-                                                        send_message(game_folder, category_name, kick_category_name, kick_failed=True) 
-                                                    else:                                               
-                                                        send_message(game_folder, category_name, kick_category_name, kick_failed=False)
-                                                else:
-                                                    send_message(game_folder, category_name)
+                                                send_message(game_folder, category_name)
+                                displayed_warning = True
                             else:
                                 if not displayed_warning:
                                     if language == 1:
@@ -2638,467 +4013,743 @@ def main_logic():
                                     if message:
                                         if kick_enabled:
                                             send_message(game_folder, category_name, kick_category_name)
-                                        else:
-                                            send_message(game_folder, category_name)
+                                        else:                                    
+                                            send_message(game_folder, category_name)   
                         else:
+                            
                             if not displayed_warning:
-                                if language == 1:
-                                    print(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden.")
-                                    if not show_console:
-                                        start_logging()
-                                        logging.info(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden.")
-                                        logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
-                                if language == 0:
-                                    print(f"⚠️ No Twitch Category found for '{game_folder}'.")
-                                    if not show_console:
-                                        start_logging()
-                                        logging.info(f"⚠️ No Twitch Category found for '{game_folder}'.")
-                                        logging.info(f"⚠ Path from which game name got extracted '{path_norm}")
-                                
+                                if game_data == None:
+                                    if language == 1:
+                                        print("-" * 90)
+                                        print(f"⚠ Nur Lokale Datenbank verwenden ist aktiviert.")                       
+                                        print(f"⚠️ Spiel nicht in lokaler Datenbank vorhanden.")
+                                        print("-" * 90)
+                                        if not show_console:
+                                            start_logging()
+                                            logging.warning(f"Nur lokale Datenbank verwenden ist aktiviert!")
+                                            logging.info(f"{game_folder} ist nicht in lokaler Datenbank.")                                
+                                            
+                                    if language == 0:
+                                        print("-" * 90)
+                                        print(f"⚠ Only local database is activated.")                       
+                                        print(f"⚠️ Game is not in local database.")
+                                        print("-" * 90)
+                                        if not show_console:
+                                            start_logging()
+                                            logging.warning(f"Only local db is activated!")
+                                            logging.info(f"{game_folder} not in local database.")       
                                 displayed_warning = True
                                 failed = True
+                                not_in_local_db = True
                                 if message:
-                                    if kick_enabled:
+                                    if kick_enabled:                                
                                         send_message(game_folder, category_name, kick_category_name)
-                                    else:                                    
-                                        send_message(game_folder, category_name)   
-                    else:
-                        if not displayed_warning:
-                            if game_data == None:
-                                if language == 1:
-                                    print("-" * 90)
-                                    print(f"⚠ Nur Lokale Datenbank verwenden ist aktiviert.")                       
-                                    print(f"⚠️ Spiel nicht in lokaler Datenbank vorhanden.")
-                                    print("-" * 90)
-                                    if not show_console:
-                                        start_logging()
-                                        logging.warning(f"Nur lokale Datenbank verwenden ist aktiviert!")
-                                        logging.info(f"{game_folder} ist nicht in lokaler Datenbank.")                                
-                                        
-                                if language == 0:
-                                    print("-" * 90)
-                                    print(f"⚠ Only local database is activated.")                       
-                                    print(f"⚠️ Game is not in local database.")
-                                    print("-" * 90)
-                                    if not show_console:
-                                        start_logging()
-                                        logging.warning(f"Only local db is activated!")
-                                        logging.info(f"{game_folder} not in local database.")       
-                            displayed_warning = True
-                            failed = True
-                            not_in_local_db = True
-                            if message:
-                                if kick_enabled:                                
-                                    send_message(game_folder, category_name, kick_category_name)
-                                else:                                
-                                    send_message(game_folder, category_name)
-
-                            
-            except (psutil.AccessDenied, psutil.NoSuchProcess):
-                continue
-        time.sleep(1)       
-         
-        delayed_reset_called = {}  # Wird verwendet, um Verzögerungen pro Ordner zu verfolgen
-
-        def delayed_category_reset(displayed_games, seen_processes, current_seen):
-            global delay_programming, game_folder, program_stopped
-            
-            delay_ms = delay_programming
-
-            def reset():
-                global category_set_already , game_folder, program_stopped
-
-                reset = False
-                current_program = game_folder
-                stopped_program = program_stopped
-
-                if current_program == stopped_program:
-                    reset = False
-                
-                if current_program != None and current_program != stopped_program:
-                    reset = False 
-                
-                if game_folder == None:
-                    reset = True           
-                
-                # Wenn der Ordner nicht mehr läuft, Reset durchführen
-                if reset:                   
-                    if stopped_program in displayed_games:
-                        displayed_games.remove(stopped_program)
-                        category_name = "Just Chatting"
-                        kick_category_name = "Just Chatting"
-                        failed = False                    
-                        if is_streamerbot_running():
-                            if category_set_already != category_name:
-                                if kick_enabled:
-                                    category_change(category_name, kick_category_name)
-                                else:
-                                    category_change(category_name)
-                                if message:
-                                    if kick_enabled:
-                                        send_message(game_folder, category_name, kick_category_name, kick_failed=False)
-                                    else:
+                                    else:                                
                                         send_message(game_folder, category_name)
-                        category_set_already = category_name
-                        if playnite_enabled:
-                            if not Playnite_Game_Stopped:
-                                if watcher_started:
-                                    stop_watcher()
-                # Reset den Status nach der Verzögerung
-                delayed_reset_called[stopped_program] = False
-                displayed_warning = False
-                displayed_warning_category = False
-##                print("Delay fertig")
-                
-            # Die Verzögerung in Sekunden (umgerechnet von Millisekunden)
-            delay_seconds = delay_ms / 1000.0
 
-            # Starte den Thread, der nach der Verzögerung die Reset-Funktion ausführt
-            threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
-
-        def delayed_category_reset_dynamic(displayed_games, seen_processes, current_seen):
-            global delay_general, Playnite_Game_Stopped, game_stopped, game_folder
-
-            delay_ms = delay_general
-
-            def reset():
-                global category_set_already, Playnite_Game_Stopped, game_stopped, game_folder
-
-                reset = False
-                current_game = game_folder
-                stopped_game = game_stopped
-                
-                if current_game == stopped_game:
-                    reset = False
-                
-                if current_game != None and current_game != stopped_game:
-                    reset = False # Neues game geöffnet, kein Reset sondern direkt neue Kategorie
-                
-                if current_game == None:
-                    reset = True
-                    
-                if reset:
-                    if stopped_game in displayed_games:
-                        displayed_games.remove(stopped_game)
-                        category_name = "Just Chatting"
-                        kick_category_name = "Just Chatting"
-                        if is_streamerbot_running():
-                            if category_set_already != category_name:
-                                if kick_enabled:
-                                    category_change(category_name, kick_category_name)
-                                else:
-                                    category_change(category_name)
-                                if message:
-                                    if kick_enabled:
-                                        send_message(game_folder, category_name, kick_category_name, kick_failed=False)
-                                    else:
-                                        send_message(game_folder, category_name)
-                        category_set_already = category_name
-                        if playnite_enabled:
-                            if not Playnite_Game_Stopped:
-                                if watcher_started:
-                                    stop_watcher()
-
-                delayed_reset_called[stopped_game] = False
-
-            delay_seconds = delay_ms / 1000.0
-            threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
-            
-            
-        def delayed_category_reset_playnite(displayed_games, seen_processes, current_seen):
-            global delay_general, Playnite_Game_Stopped, game_stopped, game_folder
-
-            delay_ms = delay_playnite
-
-            def reset():
-                global category_set_already, Playnite_Game_Stopped, game_stopped, game_folder
-
-                reset = False
-                current_game = game_folder
-                stopped_game = game_stopped
-                
-                if current_game == stopped_game:
-                    reset = False
-                
-                if current_game != None and current_game != stopped_game:
-                    reset = False # Neues game geöffnet, kein Reset sondern direkt neue Kategorie
-                
-                if current_game == None:
-                    reset = True
-                    
-                if reset:
-                    if stopped_game in displayed_games:
-                        displayed_games.remove(stopped_game)
-                        category_name = "Just Chatting"
-                        kick_category_name = "Just Chatting"
-                        if is_streamerbot_running():
-                            if category_set_already != category_name:
-                                if kick_enabled:
-                                    category_change(category_name, kick_category_name)
-                                else:
-                                    category_change(category_name)
-                                if message:
-                                    if kick_enabled:
-                                        send_message(game_folder, category_name, kick_category_name, kick_failed=False)
-                                    else:
-                                        send_message(game_folder, category_name)
-                        category_set_already = category_name
-                        if playnite_enabled:
-                            if not Playnite_Game_Stopped:
-                                if watcher_started:
-                                    stop_watcher()
-
-                delayed_reset_called[stopped_game] = False
-                displayed_warning = False
-                displayed_warning_category = False
-                save_games_to_file = True
-
-            delay_seconds = delay_ms / 1000.0
-            threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
+                                
+                except (psutil.AccessDenied, psutil.NoSuchProcess):
+                    continue
         
-        if Playnite_Game_Stopped:
+            time.sleep(1)       
             
-            if language == 1:
-                print("-" * 90)
-                print(f"   ❌ Spiel beendet: {game_folder}")
-                print("-" * 90)
-            if language == 0:
-                print("-" * 90)
-                print(f"   ❌ Game Closed: {game_folder}")
-                print("-" * 90) 
-            
-            if delay_playnite and delay_playnite > 0:
+            delayed_reset_called = {}  # Wird verwendet, um Verzögerungen pro Ordner zu verfolgen
+
+            def delayed_category_reset(displayed_games, seen_processes, current_seen, stopped_program_snap, previous_game_snap, prev_game_data_snap):
+                global delay_programming, game_folder, program_stopped
                 
-                Playnite_Game_Stopped = False
-                if game_folder not in delayed_reset_called or not delayed_reset_called[game_folder]:
-                    game_stopped = game_folder
-                    game_folder = None
-                    delayed_reset_called[game_stopped] = True
-                    delayed_category_reset_playnite(displayed_games, seen_processes, current_seen)
-                         
-    
-            else:               
-                displayed_warning = False
-                displayed_warning_category = False
+                delay_ms = delay_programming
 
-                # Entferne das Spiel aus displayed_games, wenn es beendet wurde
-                if game_folder in displayed_games:
-                    displayed_games.remove(game_folder)
-                    category_name = "Just Chatting"
-                    kick_category_name = "Just Chatting"
+                def reset_stale_id(stopped):
                     
-                    failed = False
-                    if is_streamerbot_running():
-                        if category_set_already != category_name:
-                            if kick_enabled:                                
-                                category_change(category_name, kick_category_name)
-                            else:                                
-                                category_change(category_name) 
-                            if message:
-                                if kick_enabled:
-                                    send_message(game_folder, category_name, kick_category_name, kick_failed=False)
-                                else:
-                                    send_message(game_folder, category_name)
-                    category_set_already = category_name
-                    Playnite_Game_Stopped = False
-            waiting_for_game = True
-            game_set = False
-            save_games_to_file = True
-            Playnite_Game_Retry = True
-       
-        if not is_playnite_running():
-            
-            if Playnite_exit or (playnite_running == True and waiting_for_game == False): 
-                if playnite_running == True:
-                    name = "Playnite"
-                else: 
-                    name = game_Folder
-                if language == 1:
-                    print("-" * 90)
-                    print(f"   ❌ {name} Beendet: PID {pid}")
-                    print("-" * 90)
-                if language == 0:
-                    print("-" * 90)
-                    print(f"   ❌ {name} Closed: PID {pid}")
-                    print("-" * 90)   
-                Playnite_exit = False
-                playnite_running = False
-                printed_closed = True
-                   
-                   
-            for unique_id in seen_processes - current_seen:
-                pid, exe_path = unique_id
-                if not printed_closed:
-                    if language == 1:
-                        print("-" * 90)
-                        print(f"   ❌ Beendet: PID {pid}, Spiel: {game_folder}")
-                        print("-" * 90)
-                    if language == 0:
-                        print("-" * 90)
-                        print(f"   ❌ Closed: PID {pid}, Game: {game_folder}")
-                        print("-" * 90)   
-                printed_closed = False
+                    stale_ids = [uid for uid, g in process_to_game.items() if g == stopped]
+                    for uid in stale_ids:
+                        process_to_game.pop(uid, None)
 
-                if game_folder == "Software and game development":
+                def reset():
+                    global category_set_already , game_folder, program_stopped, previous_game_folder, prev_game_set
                     
-                    if delay_programming and delay_programming > 0:
-                        # Wenn das Spiel im Ordner geschlossen wird und die Verzögerung noch nicht gesetzt wurde
-                        if game_folder not in delayed_reset_called or delayed_reset_called[game_folder] == False:
-                            program_stopped = game_folder
-                            game_folder = None
-                            delayed_reset_called[program_stopped] = True  # Verzögerung für diesen Ordner wurde gesetzt
-                            delayed_category_reset(displayed_games, seen_processes, current_seen)  # 50 Sekunden Verzögerung
+                    stopped_program = stopped_program_snap
+                    prev_game = previous_game_snap
+                    game_data = prev_game_data_snap
+                    reset = False
+                    current_program = game_folder
+                    #stopped_program = program_stopped
 
+                    if current_program == stopped_program:
+                        reset = False
+                    
+                    if current_program != None and current_program != stopped_program:
+                        reset_stale_id(stopped_program)
+                        displayed_games.remove(stopped_program)
+                        prev_game_set = False
+                        reset = False 
+                    
+                    if game_folder == None:
+                        reset = True           
 
-                elif game_folder != "Software and game development":
-                    if delay_general and delay_general > 0:
-                        
-                        if game_folder not in delayed_reset_called or not delayed_reset_called[game_folder]:
-                            game_stopped = game_folder
-                            game_folder = None
-                            delayed_reset_called[game_stopped] = True
-                            delayed_category_reset_dynamic(displayed_games, seen_processes, current_seen)
-                            
-                    else:               
-                        displayed_warning = False
-                        displayed_warning_category = False
+                    if prev_game != None and prev_game != stopped_program:
+                        reset = True                               
 
-                        # Entferne das Spiel aus displayed_games, wenn es beendet wurde
-                        if game_folder in displayed_games:
-                            displayed_games.remove(game_folder)
-                            category_name = "Just Chatting"
-                            kick_category_name = "Just Chatting"
-                            
+                    
+                    if reset:
+                        if stopped_program in displayed_games:
+                            displayed_games.remove(stopped_program)
+                            category_set_already = None
                             failed = False
-                            game_set = False
-                            Playnite_exit = False
-                            if watcher_started:
-                                stop_watcher()
+
+                            reset_stale_id(stopped_program)
+                                
+                            if prev_game is not None and prev_game in displayed_games:
+                                if game_data:  # ← direkt verwenden
+                                    category_name = game_data["Twitch Category Name"]
+                                    kick_category_name = game_data.get("Kick Category Name", "Just Chatting")
+                                    game_folder = prev_game
+                                    previous_game_folder = None  # ← Restore erfolgreich
+                                    prev_game_set = False
+                                else:
+                                    category_name = "Just Chatting"
+                                    kick_category_name = "Just Chatting"
+                                    previous_game_folder = None
+                                    prev_game_set = False
+                            else:
+                                category_name = "Just Chatting"
+                                kick_category_name = "Just Chatting"
+                                previous_game_folder = None
+                                prev_game_set = False
+
+
                             if is_streamerbot_running():
                                 if category_set_already != category_name:
-                                    if kick_enabled:                                
+                                    if kick_enabled:
                                         category_change(category_name, kick_category_name)
-                                    else:                                
-                                        category_change(category_name) 
+                                    else:
+                                        category_change(category_name)
                                     if message:
                                         if kick_enabled:
                                             send_message(game_folder, category_name, kick_category_name, kick_failed=False)
                                         else:
                                             send_message(game_folder, category_name)
                             category_set_already = category_name
+                            if playnite_enabled:
+                                if not is_playnite_running():
+                                    if watcher_started:
+                                        stop_watcher()
+                    program_stopped = None
+                    delayed_reset_called[stopped_program] = False
+                    displayed_warning = False
+                    displayed_warning_category = False
 
-                        
-##            # Entferne das Spiel aus displayed_games, wenn es beendet wurde
-##            # Remove game from displayed_games when it is closed        
-##            if game_folder in displayed_games:
-##                displayed_games.remove(game_folder)
-##                category_name = "Just Chatting"
-##                category_set_already = category_name
-##                failed = False
-##                if is_streamerbot_running():
-##                    category_change(category_name)
-##                    send_message(game_folder, category_name)
-
+                delay_seconds = delay_ms / 1000.0
+                threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
                 
-        # Aktualisiere die Liste der bekannten Prozesse
-        # Update list of known processes
-        
-        seen_processes = current_seen.copy()
-        # Speichern der gesammelten Spielinformationen in einer JSON-Datei
-        # Save all Infos in json
-        if first_save:
-            if saved_games != previous_saved_games:
-                if save_games_to_file:
-                    save_saved_games(saved_games)
-                previous_saved_games = saved_games.copy()
+                    # Wenn der Ordner nicht mehr läuft, Reset durchführen
+    #                if reset:                   
+    #                     if stopped_program in displayed_games:
+    #                         displayed_games.remove(stopped_program)
+    #                         category_name = "Just Chatting"
+    #                         kick_category_name = "Just Chatting"
+    #                         failed = False                    
+    #                         if is_streamerbot_running():
+    #                             if category_set_already != category_name:
+    #                                 if kick_enabled:
+    #                                     category_change(category_name, kick_category_name)
+    #                                 else:
+    #                                     category_change(category_name)
+    #                                 if message:
+    #                                     if kick_enabled:
+    #                                         send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+    #                                     else:
+    #                                         send_message(game_folder, category_name)
+    #                         category_set_already = category_name
+    #                         if playnite_enabled:
+    #                             if not Playnite_Game_Stopped:
+    #                                 if watcher_started:
+    #                                     stop_watcher()
+    #                 # Reset den Status nach der Verzögerung
+    #                 delayed_reset_called[stopped_program] = False
+    #                 displayed_warning = False
+    #                 displayed_warning_category = False
+    # ##                print("Delay fertig")
+                    
+    #             # Die Verzögerung in Sekunden (umgerechnet von Millisekunden)
+    #             delay_seconds = delay_ms / 1000.0
 
-        if watch_obs:
+    #             # Starte den Thread, der nach der Verzögerung die Reset-Funktion ausführt
+    #             threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
 
-            # Überprüfen, ob OBS bereits gestartet wurde und nun nicht mehr läuft
-            # Check if OBS already got started and now closed
-            if obs_started and not is_obs_running():
-                if language == 1:
-                    print("⚠️ OBS wurde geschlossen. Beende das Programm...\n")
-                if language == 0:
-                    print("⚠️ OBS closed. Closing script...\n")
-                time.sleep(5)
-                terminate_current_instance()
-                ##sys.exit(0)  # Beendet das Programm / closes programm
 
-            # Überprüfen, ob OBS zum ersten Mal läuft
-            # Check if OBS is started the first time
-            if is_obs_running() and not obs_started:
-                if language == 1:
-                    print("✅ OBS wurde gestartet. Jetzt wird das Programm überwacht...\n")
-                if language == 0:
-                    print("✅ OBS started. Programm is now monitored...\n")
-                obs_started = True
+            def delayed_category_reset_dynamic(displayed_games, seen_processes, current_seen, game_stopped_snap, previous_game_folder_snap, prev_game_data_snap):
+                global delay_general, Playnite_Game_Stopped, game_stopped, game_folder
 
-        if watch_streamerbot:
-            # Überprüfen, ob OBS bereits gestartet wurde und nun nicht mehr läuft
-            # Check if streamerbot already got started and now closed
-            if streamerbot_started and not is_streamerbot_running():
-                if language == 1:
-                    print("⚠️ Streamer.bot wurde geschlossen. Beende das Programm...\n")
-                if language == 0:
-                    print("⚠️ Streamer.bot closed. Closing script...\n")
-                time.sleep(5)
-                ##sys.exit(0)  # Beendet das Programm / close Programm
-                terminate_current_instance()
+                delay_ms = delay_general
 
-            # Überprüfen, ob Streamerbot zum ersten Mal läuft
-            # Check if streamerbot is started the first time
-            if is_streamerbot_running() and not streamerbot_started:
-                if language == 1:
-                    print("✅ Streamer.bot wurde gestartet. Jetzt wird das Programm überwacht...\n")
-                if language == 0:
-                    print("✅ Streamer.bot opened. Programm is now monitored...\n")
-                streamerbot_started = True
+                def reset_displayed_games(closed_game):
+                    global category_set_already, Playnite_Game_Stopped, game_stopped, game_folder, previous_game_folder, prev_game_set
+
+                    stale_ids = [uid for uid, g in process_to_game.items() if g == closed_game]
+                    for uid in stale_ids:
+                        process_to_game.pop(uid, None)
+                    previous_game_folder = None
+                    prev_game_set = False                                           
+                    displayed_games.remove(closed_game)
+
+                def reset():
+                    global category_set_already, Playnite_Game_Stopped, game_stopped, game_folder, previous_game_folder, prev_game_set
+
+                    stopped_game = game_stopped_snap
+                    prev_game = previous_game_folder_snap
+                    game_data = prev_game_data_snap
+                    reset = False
+                    current_game = game_folder
+                    #stopped_game = game_stopped
+                    
+                    if current_game == stopped_game:
+                        reset = False
+                    
+                    if current_game != None and current_game != stopped_game:
+                        prev_game_set = False
+                        reset = False # Neues game geöffnet, kein Reset sondern direkt neue Kategorie
+                    
+                    if current_game == None:
+                        reset = True
+                        
+                    if prev_game != None and prev_game != stopped_game:
+                        reset = True
+                        
+                    if prev_game == stopped_game:
+                        reset_displayed_games(stopped_game)
+
+                    if reset:
+                        if stopped_game in displayed_games:
+                            displayed_games.remove(stopped_game)
+                            category_set_already = None
+                            failed = False
+
+                            stale_ids = [uid for uid, g in process_to_game.items() if g == stopped_game]
+                            for uid in stale_ids:
+                                process_to_game.pop(uid, None)
+
+
+                            if prev_game is not None and prev_game in displayed_games:
+                                if game_data:  # ← direkt verwenden
+                                    category_name = game_data["Twitch Category Name"]
+                                    kick_category_name = game_data.get("Kick Category Name", "Just Chatting")
+                                    game_folder = prev_game
+                                    previous_game_folder = None  # ← Restore erfolgreich
+                                    prev_game_set = False
+                                else:
+                                    category_name = "Just Chatting"
+                                    kick_category_name = "Just Chatting"
+                                    previous_game_folder = None
+                                    prev_game_set = False
+                            else:
+                                category_name = "Just Chatting"
+                                kick_category_name = "Just Chatting"
+                                previous_game_folder = None
+                                prev_game_set = False
+
+
+                            if is_streamerbot_running():
+                                if category_set_already != category_name:
+                                    if kick_enabled:
+                                        category_change(category_name, kick_category_name)
+                                    else:
+                                        category_change(category_name)
+                                    if message:
+                                        if kick_enabled:
+                                            send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                        else:
+                                            send_message(game_folder, category_name)
+                            category_set_already = category_name
+                            if playnite_enabled:
+                                if not is_playnite_running():
+                                    if watcher_started:
+                                        stop_watcher()
+                    game_stopped = None
+                    delayed_reset_called[stopped_game] = False
+                    displayed_warning = False
+                    displayed_warning_category = False
+
+                delay_seconds = delay_ms / 1000.0
+                threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
             
-        # Kurze Pause, um Systemressourcen zu schonen
-        # short pause to save systemressources
-        time.sleep(2)
+                
+            def delayed_category_reset_playnite(displayed_games, seen_processes, current_seen, game_stopped_snap, previous_game_folder_snap, prev_game_data_snap):
+                global delay_general, Playnite_Game_Stopped, game_stopped, game_folder
+
+                delay_ms = delay_playnite
+
+                def reset_displayed_games(closed_game):
+                    global category_set_already, Playnite_Game_Stopped, game_stopped, game_folder, previous_game_folder, prev_game_set
+
+                    stale_ids = [uid for uid, g in process_to_game.items() if g == closed_game]
+                    for uid in stale_ids:
+                        process_to_game.pop(uid, None)
+                    previous_game_folder = None
+                    prev_game_set = False                                           
+                    #displayed_games.remove(closed_game)
+
+                def reset():
+                    global category_set_already, Playnite_Game_Stopped, game_stopped, game_folder
+
+                    stopped_game = game_stopped_snap
+                    prev_game = previous_game_folder_snap
+                    game_data = prev_game_data_snap
+                    reset = False
+                    current_game = game_folder
+                    #stopped_game = game_stopped
+                    
+                    if current_game == stopped_game:
+                        reset = False
+                    
+                    if current_game != None and current_game != stopped_game:
+                        reset = False # Neues game geöffnet, kein Reset sondern direkt neue Kategorie
+                    
+                    if current_game == None:
+                        reset = True
+                        
+                    if prev_game != None and prev_game != stopped_game:
+                        reset = True
+                        
+                    if prev_game != stopped_game:
+                        reset_displayed_games(stopped_game)
+                                                
+                    if reset:
+                        if stopped_game in displayed_games:
+                            displayed_games.remove(stopped_game)
+                            category_set_already = None
+                            failed = False
+
+                            if prev_game is not None and prev_game in displayed_games:
+                                if game_data:  # ← direkt verwenden
+                                    category_name = game_data["Twitch Category Name"]
+                                    kick_category_name = game_data.get("Kick Category Name", "Just Chatting")
+                                    game_folder = prev_game
+                                    previous_game_folder = None  # ← Restore erfolgreich
+                                    prev_game_set = False
+                                else:
+                                    category_name = "Just Chatting"
+                                    kick_category_name = "Just Chatting"
+                                    previous_game_folder = None
+                                    prev_game_set = False
+                            else:
+                                category_name = "Just Chatting"
+                                kick_category_name = "Just Chatting"
+                                previous_game_folder = None
+                                prev_game_set = False
+                                Playnite_Game_Retry = True
+                                waiting_for_game = True
+                                
+
+
+                            if is_streamerbot_running():
+                                if category_set_already != category_name:
+                                    if kick_enabled:
+                                        category_change(category_name, kick_category_name)
+                                    else:
+                                        category_change(category_name)
+                                    if message:
+                                        if kick_enabled:
+                                            send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                        else:
+                                            send_message(game_folder, category_name)
+                            category_set_already = category_name
+                            if playnite_enabled:
+                                if not is_playnite_running():
+                                    if watcher_started:
+                                        stop_watcher()
+
+                    delayed_reset_called[stopped_game] = False
+                    displayed_warning = False
+                    displayed_warning_category = False
+                    save_games_to_file = True
+
+                delay_seconds = delay_ms / 1000.0
+                threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
+            
+            # def reset_displayed_games(closed_game):
+            #     global category_set_already, Playnite_Game_Stopped, game_stopped, game_folder, previous_game_folder, prev_game_set
+            #     stale_ids = [uid for uid, g in process_to_game.items() if g == closed_game]
+            #     for uid in stale_ids:
+            #         process_to_game.pop(uid, None)
+            #     previous_game_folder = None
+            #     prev_game_set = False                                           
+            #     displayed_games.remove(closed_game)
+            #     #category_set_already = None
+    
+            
+            if Playnite_Game_Stopped:
+                
+                if language == 1:
+                    print("-" * 90)
+                    print(f"   ❌ Spiel beendet: {game_folder}")
+                    print("-" * 90)
+                if language == 0:
+                    print("-" * 90)
+                    print(f"   ❌ Game Closed: {game_folder}")
+                    print("-" * 90) 
+                
+                if delay_playnite and delay_playnite > 0:
+                    
+                    Playnite_Game_Stopped = False
+                    if game_folder not in delayed_reset_called or not delayed_reset_called[game_folder]:
+                        game_stopped = game_folder
+                        prev_game_data = next((g for g in saved_games if g["Game"] == previous_game_folder), None)
+                        game_folder = None
+                        delayed_reset_called[game_stopped] = True
+                        delayed_category_reset_playnite(displayed_games, seen_processes, current_seen, game_stopped, previous_game_folder, prev_game_data)
+                            
+        
+                else:               
+                    displayed_warning = False
+                    displayed_warning_category = False
+
+                    # Entferne das Spiel aus displayed_games, wenn es beendet wurde
+                    if game_folder in displayed_games:
+                        displayed_games.remove(game_folder)
+                        category_name = "Just Chatting"
+                        kick_category_name = "Just Chatting"
+                        
+                        failed = False
+                        if is_streamerbot_running():
+                            if category_set_already != category_name:
+                                if kick_enabled:                                
+                                    category_change(category_name, kick_category_name)
+                                else:                                
+                                    category_change(category_name) 
+                                if message:
+                                    if kick_enabled:
+                                        send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                    else:
+                                        send_message(game_folder, category_name)
+                        category_set_already = category_name
+                        Playnite_Game_Stopped = False
+                waiting_for_game = True
+                game_set = False
+                save_games_to_file = True
+                Playnite_Game_Retry = True
+        
+            if not is_playnite_running():
+                
+                if Playnite_exit or (playnite_running == True and waiting_for_game == False): 
+                    if playnite_running == True:
+                        name = "Playnite"
+                    else: 
+                        name = game_folder
+                    if language == 1:
+                        print("-" * 90)
+                        print(f"   ❌ {name} Beendet: PID {pid}")
+                        print("-" * 90)
+                    if language == 0:
+                        print("-" * 90)
+                        print(f"   ❌ {name} Closed: PID {pid}")
+                        print("-" * 90)   
+                    Playnite_exit = False
+                    playnite_running = False
+                    #printed_closed = True
+                    
+                                
+                for unique_id in seen_processes - current_seen:
+                    pid, exe_path = unique_id
+                    closed_game = process_to_game.pop(unique_id, game_folder)
+                    if closed_game is None:
+                        continue  # ← unbekannter Prozess, ignorieren                
+                    still_running = any(g == closed_game for g in process_to_game.values())
+                    if still_running:
+                        #printed_closed = True  # ← kein Print, kein Reset
+                        continue
+                    
+                    if not printed_closed:
+                        if language == 1:
+                            print("-" * 90)
+                            print(f"   ❌ Beendet: PID {pid}, Spiel: {closed_game}")
+                            print("-" * 90)
+                        if language == 0:
+                            print("-" * 90)
+                            print(f"   ❌ Closed: PID {pid}, Game: {closed_game}")
+                            print("-" * 90)   
+                    printed_closed = False
+
+                    if closed_game == "Software and game development":
+                        
+                        if delay_programming and delay_programming > 0:
+                            # Wenn das Spiel im Ordner geschlossen wird und die Verzögerung noch nicht gesetzt wurde
+                            if closed_game not in delayed_reset_called or delayed_reset_called[closed_game] == False:
+                                program_stopped = closed_game
+                                prev_game_data = next((g for g in saved_games if g["Game"] == previous_game_folder), None)
+                                game_folder = None
+                                delayed_reset_called[program_stopped] = True  # Verzögerung für diesen Ordner wurde gesetzt
+                                delayed_category_reset(displayed_games, seen_processes, current_seen, program_stopped, previous_game_folder, prev_game_data)  # 50 Sekunden Verzögerung
+
+
+                    elif closed_game != "Software and game development":
+                        if delay_general and delay_general > 0:
+                            
+                            if game_folder not in delayed_reset_called or not delayed_reset_called[closed_game]:
+                                game_stopped = closed_game
+                                prev_game_data = next((g for g in saved_games if g["Game"] == previous_game_folder), None)
+                                game_folder = None
+                                delayed_reset_called[game_stopped] = True
+                                delayed_category_reset_dynamic(displayed_games, seen_processes, current_seen, game_stopped, previous_game_folder, prev_game_data)
+
+                                
+                        else:               
+                            displayed_warning = False
+                            displayed_warning_category = False
+
+                            # Entferne das Spiel aus displayed_games, wenn es beendet wurde
+                            
+                            
+                            if closed_game in displayed_games:
+                                displayed_games.remove(closed_game)
+                                #category_name = "Just Chatting"
+                            # kick_category_name = "Just Chatting"
+                                stale_ids = [uid for uid, g in process_to_game.items() if g == closed_game]
+                                for uid in stale_ids:
+                                    process_to_game.pop(uid, None)
+                                prev_game_data = next((g for g in saved_games if g["Game"] == previous_game_folder), None)
+                                current_game = game_folder
+                                if current_game != closed_game:
+                                    if closed_game == previous_game_folder:
+                                        previous_game_folder = current_game
+                                        continue
+                                    previous_game_folder = current_game
+                                    if previous_game_folder is not None and previous_game_folder in displayed_games and prev_game_data:
+                                        category_name = prev_game_data["Twitch Category Name"]
+                                        kick_category_name = prev_game_data.get("Kick Category Name", "Just Chatting")
+                                        game_folder = previous_game_folder
+                                        stale_ids = [uid for uid, g in process_to_game.items() if g == closed_game]
+                                        for uid in stale_ids:
+                                            process_to_game.pop(uid, None)
+                                    #continue
+                                else:
+                                    
+                                    if previous_game_folder is not None and previous_game_folder in displayed_games and prev_game_data:
+                                        category_name = prev_game_data["Twitch Category Name"]
+                                        kick_category_name = prev_game_data.get("Kick Category Name", "Just Chatting")
+                                        game_folder = previous_game_folder
+                                        stale_ids = [uid for uid, g in process_to_game.items() if g == closed_game]
+                                        for uid in stale_ids:
+                                            process_to_game.pop(uid, None)
+                                        # optional: previous zurücksetzen nach Restore
+
+                                    else:
+                                        category_name = "Just Chatting"
+                                        kick_category_name = "Just Chatting"   
+                                    
+                                #previous_game_folder = None
+                                prev_game_set = False                      
+                                failed = False
+                                game_set = False
+                                Playnite_exit = False
+                                if watcher_started:
+                                    stop_watcher()
+                                if is_streamerbot_running():
+                                    if category_set_already != category_name:
+                                        if kick_enabled:                                
+                                            category_change(category_name, kick_category_name)
+                                        else:                                
+                                            category_change(category_name) 
+                                        if message:
+                                            if kick_enabled:
+                                                send_message(game_folder, category_name, kick_category_name, kick_failed=False)
+                                            else:
+                                                send_message(game_folder, category_name)
+                                category_set_already = category_name
+
+                            
+    ##            # Entferne das Spiel aus displayed_games, wenn es beendet wurde
+    ##            # Remove game from displayed_games when it is closed        
+    ##            if game_folder in displayed_games:
+    ##                displayed_games.remove(game_folder)
+    ##                category_name = "Just Chatting"
+    ##                category_set_already = category_name
+    ##                failed = False
+    ##                if is_streamerbot_running():
+    ##                    category_change(category_name)
+    ##                    send_message(game_folder, category_name)
+
+                    
+            # Aktualisiere die Liste der bekannten Prozesse
+            # Update list of known processes
+            
+            seen_processes = current_seen.copy()
+            # Speichern der gesammelten Spielinformationen in einer JSON-Datei
+            # Save all Infos in json
+            if first_save:
+                if saved_games != previous_saved_games:
+                    if save_games_to_file:
+                        save_saved_games(saved_games)
+                    previous_saved_games = saved_games.copy()
+
+            if watch_obs:
+
+                # Überprüfen, ob OBS bereits gestartet wurde und nun nicht mehr läuft
+                # Check if OBS already got started and now closed
+                if obs_started and not is_obs_running():
+                    if language == 1:
+                        print("⚠️ OBS wurde geschlossen. Beende das Programm...\n")
+                    if language == 0:
+                        print("⚠️ OBS closed. Closing script...\n")
+                    time.sleep(5)
+                    terminate_current_instance()
+                    ##sys.exit(0)  # Beendet das Programm / closes programm
+
+                # Überprüfen, ob OBS zum ersten Mal läuft
+                # Check if OBS is started the first time
+                if is_obs_running() and not obs_started:
+                    if language == 1:
+                        print("✅ OBS wurde gestartet. Jetzt wird das Programm überwacht...\n")
+                    if language == 0:
+                        print("✅ OBS started. Programm is now monitored...\n")
+                    obs_started = True
+
+            if watch_streamerbot:
+                # Überprüfen, ob OBS bereits gestartet wurde und nun nicht mehr läuft
+                # Check if streamerbot already got started and now closed
+                if streamerbot_started and not is_streamerbot_running():
+                    if language == 1:
+                        print("⚠️ Streamer.bot wurde geschlossen. Beende das Programm...\n")
+                    if language == 0:
+                        print("⚠️ Streamer.bot closed. Closing script...\n")
+                    time.sleep(5)
+                    ##sys.exit(0)  # Beendet das Programm / close Programm
+                    terminate_current_instance()
+
+                # Überprüfen, ob Streamerbot zum ersten Mal läuft
+                # Check if streamerbot is started the first time
+                if is_streamerbot_running() and not streamerbot_started:
+                    if language == 1:
+                        print("✅ Streamer.bot wurde gestartet. Jetzt wird das Programm überwacht...\n")
+                    if language == 0:
+                        print("✅ Streamer.bot opened. Programm is now monitored...\n")
+                    streamerbot_started = True
+                
+            # Kurze Pause, um Systemressourcen zu schonen
+            # short pause to save systemressources
+            time.sleep(2)
+
+        except Exception:  # ← NEU: fängt alle unbehandelten Exceptions im while-body
+            import traceback
+            import datetime
+            with open("crash_log.txt", "a", encoding="utf-8") as f:
+                f.write(f"\n--- {datetime.datetime.now()} ---\n")
+                traceback.print_exc(file=f)
+            traceback.print_exc()  # auch in der Konsole ausgeben
+            time.sleep(2)  # Loop läuft weiter statt abzustürzen
+    
         
 # PyQt GUI starten (MUSS im Hauptthread laufen)
 # Start PyQt gui, needs to run in mainthread
 def start_gui():
-    global gui
-    app = QApplication([])
+    global gui, console
+    app = QApplication.instance() or QApplication([])
 
-    # GUI initialisieren
-    # Initialise gui
     console = ConsoleApp()
-    console.show()
-    gui = True
 
-    # Umleitung der Standardausgabe
-    # detour standardoutput
+    def _on_show():
+        global gui
+        for msg in _output_buffer:
+            log_queue.put(msg)
+        console.show()
+        gui = True
+
+
+    def _on_hide():
+        global gui
+        console.hide()
+        gui = False
+
+    _gui_signals.show_console_window.connect(_on_show)
+    _gui_signals.hide_console_window.connect(_on_hide)
+
+    if show_console:
+        _on_show()  # sofort anzeigen + umleiten
+        gui = True
     sys.stdout = ConsoleRedirector(log_queue)
     sys.stderr = ConsoleRedirector(log_queue)
-
-    # Logik im Hintergrund starten
-    # Start logic in mainthread
+    
+    double_instance_thread = threading.Thread(target=monitor_instances, daemon=True)
+    double_instance_thread.start()
+    
     logic_thread = threading.Thread(target=main_logic)
     logic_thread.start()
-    # Event, das ausgeführt wird, wenn das Fenster geschlossen wird
-    # Event when window is closed
+
     def on_exit():
         if language == 1:
             print("GUI geschlossen. Beende das Script.")
         if language == 0:
             print("GUI closed. Exit Script.")
-        os._exit(0)  # Beendet das Script / Exit program
+        for widget in QApplication.topLevelWidgets():
+            if isinstance(widget, QDialog):
+                widget.close()
+        try:
+            if _active_toast:
+                _active_toast.hide()
+            _toast_cleanup()
+        except:
+            pass
+        os._exit(0)
 
-    # Event verbinden, um das Script zu beenden, wenn das Fenster geschlossen wird
-    # Event bound to end script when window is closed
     app.aboutToQuit.connect(on_exit)
-    # GUI Event loop starten
-    # Start gui loop
     app.exec_()
-        
+       
 if __name__ == '__main__':
 
+    rules = None
+    _qt_app = QApplication.instance() or QApplication(sys.argv)
+    _qt_app.setQuitOnLastWindowClosed(False)
+    _init_changelog_signal()
+    _notification_ready = threading.Event()
+    def _run_notification():
+        global rules, excluded_exe_patterns, excluded_exe_names, excluded_exe_exact, game_name_mappings, game_name_exact
+        # Windows-spezifischer Fix
+        try:
+            asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+            
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        # loop.set_exception_handler(
+        #     lambda loop, ctx: None
+        #     if isinstance(ctx.get("exception"), (asyncio.InvalidStateError, RuntimeError))
+        #     else loop.default_exception_handler(ctx)
+        # )
+            try:
+                rules = loop.run_until_complete(_run_update_notification())
+     
+            except Exception as e:
+                import traceback
+                with open("notification_error.log", "w") as f:
+                    traceback.print_exc(file=f)
+        except Exception as e:
+            import traceback
+            with open("notification_error.log", "w") as f:
+                traceback.print_exc(file=f)
+        finally:
+            _notification_ready.set()
+    
+
+        try:
+            loop.run_forever()
+        except Exception:
+            pass
+
+    notification_thread = threading.Thread(target=_run_notification, daemon=True)
+    notification_thread.start()
     if show_console:
+        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+        if hwnd:
+            ctypes.windll.user32.ShowWindow(hwnd, 0)    
         start_gui() 
+        _qt_app.exec_()
     else:
-        main_logic()
+        
+        hwnd = ctypes.windll.kernel32.GetConsoleWindow()
+        if hwnd:
+            ctypes.windll.user32.ShowWindow(hwnd, 0)  # SW_HIDE
+        #main_logic()
+        
+        start_gui()
+        #threading.Thread(target=main_logic, daemon=True).start()
+        _qt_app.exec_()

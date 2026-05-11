@@ -1,3 +1,24 @@
+## :small_blue_diamond: **v2.0.12-Sv1.0.2 (DE)**
+
+### 🚀 Neue Features
+- 🧩 Hardcoded-Match-Fixes wurden ausgelagert und werden nun beim Start automatisch auf Updates geprüft – ein vollständiges Programm-Update ist dafür nicht mehr erforderlich
+- 🔄 Wird ein zweites Spiel oder Programm erkannt und gematcht, merkt sich die Anwendung die zuletzt aktive Kategorie. Läuft das erste Spiel nach dem Schließen des zweiten weiterhin, wird automatisch zurück zur vorherigen Kategorie gewechselt
+- 🔔 Windows-Benachrichtigungen wurden integriert – aktuell werden diese für Updates der Matchfix-Liste beim Start verwendet
+
+### 🛠️ Kategorie-Matching Fixes
+- 🔧 Problem bei der Kategorie-Suche nach Laufzeiten von über 4 Stunden behoben, da der Token ungültig wurde
+
+## :small_blue_diamond: **v2.0.12-Sv1.0.2 (EN)**
+
+### 🚀 New Features
+- 🧩 Hardcoded match fixes have been moved externally and are now checked for updates at startup — no full program release is required anymore
+- 🔄 If a second game or program is started and matched, the application will remember the previously active category. Once the second game closes, it will automatically switch back if the first game is still running
+- 🔔 Windows notifications have been implemented — currently used for matchfix list updates during startup
+
+### 🛠️ Category-Matching Fixes
+- 🔧 Fixed an issue where category searching stopped working correctly after running for more than 4 hours, cause of invalid token
+
+
 ## :small_blue_diamond: **v2.0.11-Sv1.0.2 (DE)**
 
 ### 🛠️ Kategorie-Matching Fixes
