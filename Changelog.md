@@ -1,3 +1,19 @@
+## :small_blue_diamond: **v2.0.13-Sv1.0.2 (DE)**
+
+### 🚀 Neue Features
+- 🔔 Windows-Benachrichtigungen können ausgeschalten werden - derzeit nur direkt in der config.json möglich. Standart ist aktiviert
+
+### 🛠️ Fixes
+- 🔧 Problem bei dem Kategorie zurücksetzen bei Software & Development behoben
+
+## :small_blue_diamond: **v2.0.13-Sv1.0.2 (EN)**
+
+### 🚀 New Features
+- 🔔 Windows notifications can be disabled - currently only possible in the config.json. Default is enabled
+
+### 🛠️ Fixes
+- 🔧 Fixed a problem where category resetting for software & development was not working
+
 ## :small_blue_diamond: **v2.0.12-Sv1.0.2 (DE)**
 
 ### 🚀 Neue Features
