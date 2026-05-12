@@ -150,7 +150,8 @@ default_config = {
         "delay_general": 0,
         "delay_playnite": 0,
         "kick_enabled": False,
-        "playnite_enabled": False
+        "playnite_enabled": False,
+        "matchfix_update_toast_notification": True
     }
 }
 
@@ -1299,6 +1300,7 @@ MATCH_CHANGELOG_URL = "https://github.com/stevo-ko/Category_Switcher/raw/refs/he
 TOAST_APP_ID   = "stevo_ko.CategorySwitcher"
 TOAST_APP_NAME = "Category Switcher"
 TOAST_FLAG     = os.path.join(programm_ordner, "_internal", ".toast_registered")
+matchfix_update_toast_notification = bool(config["options"]["matchfix_update_toast_notification"])
 _toast_build_params = {}
  
 def _get_text(de, en):
@@ -1656,8 +1658,17 @@ async def _run_update_notification():
         if isinstance(ctx.get("exception"), (asyncio.InvalidStateError, RuntimeError)) 
         else loop.default_exception_handler(ctx)
     )
+    
     _toast_init()
-
+    if not matchfix_update_toast_notification:
+        # Kein Toast, aber Rules normal laden
+        rules_result, _, _, _ = await asyncio.get_event_loop().run_in_executor(
+            None, _load_rules_with_toast, None
+        )
+        rules = rules_result
+        _notification_ready.set()
+        return rules_result
+    
     toast = Toast(app_id=TOAST_APP_ID, toast_id="update-toast")
     _active_toast = toast
     toast.elements = [
@@ -1681,72 +1692,72 @@ async def _run_update_notification():
     rules_result, was_changed, result_toast, first_download = await asyncio.get_event_loop().run_in_executor(
         None, _load_rules_with_toast, toast
     )
-    
+
     rules = rules_result
-        
-    await asyncio.sleep(1.0)
-    toast.hide()
-    show_task.cancel()
-    _active_toast = None
+    if matchfix_update_toast_notification:        
+        await asyncio.sleep(1.0)
+        toast.hide()
+        show_task.cancel()
+        _active_toast = None
+    
+        if result_toast:
+                _notification_ready.set()
+                if was_changed or first_download:
+                    _dismissed = asyncio.Event()
 
-    if result_toast:
-            _notification_ready.set()
-            if was_changed or first_download:
-                _dismissed = asyncio.Event()
+                    def _on_toast_result(result: ToastResult):
+                        _dismissed.set()
+                        if result.arguments == "changelog":
+                            QTimer.singleShot(0, _show_changelog)
 
-                def _on_toast_result(result: ToastResult):
-                    _dismissed.set()
-                    if result.arguments == "changelog":
-                        QTimer.singleShot(0, _show_changelog)
+                    result_toast.on_result(_on_toast_result)
+                    show_result = asyncio.create_task(result_toast.show())
 
-                result_toast.on_result(_on_toast_result)
-                show_result = asyncio.create_task(result_toast.show())
+                    for _ in range(100):  # 10 Sekunden in 0.1s Schritten
+                        if _dismissed.is_set():
+                            break
+                        await asyncio.sleep(0.1)
+                        
+                    result_toast.hide()
+                    _active_toast = None
+                    params = _toast_build_params.get(id(result_toast))
+                    if params:
+                        silent = _build_result_toast(*params, show_popup=False)
+                        _active_toast = silent
 
-                for _ in range(100):  # 10 Sekunden in 0.1s Schritten
-                    if _dismissed.is_set():
-                        break
-                    await asyncio.sleep(0.1)
-                    
-                result_toast.hide()
-                _active_toast = None
-                params = _toast_build_params.get(id(result_toast))
-                if params:
-                    silent = _build_result_toast(*params, show_popup=False)
-                    _active_toast = silent
+                        @silent.on_result
+                        def _silent_result(result: ToastResult):
+                            if result is not None and result.arguments == "changelog":
+                                _show_changelog()
 
-                    @silent.on_result
-                    def _silent_result(result: ToastResult):
-                        if result is not None and result.arguments == "changelog":
-                            _show_changelog()
+                        _silent_task = asyncio.create_task(silent.show())
 
-                    _silent_task = asyncio.create_task(silent.show())
+                elif rules_result is None:
+                    show_result = asyncio.create_task(result_toast.show())
+                    await asyncio.sleep(10.0)
+                    result_toast.hide()
 
-            elif rules_result is None:
-                show_result = asyncio.create_task(result_toast.show())
-                await asyncio.sleep(10.0)
-                result_toast.hide()
-
-                silent = Toast(app_id=TOAST_APP_ID, show_popup=False)
-                silent.elements = result_toast.elements
-                _active_toast = silent
-                _silent_task = asyncio.create_task(silent.show())
-
-            else:
-                show_result = asyncio.create_task(result_toast.show())
-                _active_toast = result_toast
-                await asyncio.sleep(10.0)
-                result_toast.hide()
-                _active_toast = None
-
-                if rules_result is None:
                     silent = Toast(app_id=TOAST_APP_ID, show_popup=False)
                     silent.elements = result_toast.elements
                     _active_toast = silent
                     _silent_task = asyncio.create_task(silent.show())
+
+                else:
+                    show_result = asyncio.create_task(result_toast.show())
+                    _active_toast = result_toast
+                    await asyncio.sleep(10.0)
+                    result_toast.hide()
+                    _active_toast = None
+
+                    if rules_result is None:
+                        silent = Toast(app_id=TOAST_APP_ID, show_popup=False)
+                        silent.elements = result_toast.elements
+                        _active_toast = silent
+                        _silent_task = asyncio.create_task(silent.show())
     
         
 
-# _toast_cleanup()
+    #_toast_cleanup()
     return rules_result
 # Logging-Queue
 log_queue = queue.Queue()
@@ -2195,6 +2206,9 @@ def main_logic():
     ##gui
     global console
     
+    ##toast notification
+    global matchfix_update_toast_notification
+    
     ## delays
     global delay_programming, delay_general, delay_playnite, game_stopped, program_stopped
     
@@ -2275,6 +2289,7 @@ def main_logic():
         global delay_general
         global delay_playnite
         global message
+        global matchfix_update_toast_notification
         nonlocal streamerbot_url
         nonlocal streamerbot_port
         nonlocal streamerbot_get_actions_name
@@ -2341,6 +2356,7 @@ def main_logic():
         kick_enabled = bool(config["options"]["kick_enabled"])
         playnite_enabled = bool(config["options"]["playnite_enabled"])
         setting_language = config["options"]["language"]
+        matchfix_update_toast_notification = bool(config["options"]["matchfix_update_toast_notification"])
 
         german_variants = {"deutsch", "german", "de", "ger", "deu"}
         english_variants = {"englisch", "english", "en", "eng"}
@@ -3348,6 +3364,7 @@ def main_logic():
         excluded_exe_exact = set(rules["excluded_exe_exact_in_code"])
         game_name_mappings = rules["game_name_mappings"]
         game_name_exact = rules["game_name_exact"]
+
     else:
         if language == 1:
             print("⚠️ Matchfixes nicht verfügbar, die Kategorien können für manche Spiele nicht korrekt gefunden werden!")
@@ -4081,9 +4098,9 @@ def main_logic():
                     
                     if current_program != None and current_program != stopped_program:
                         reset_stale_id(stopped_program)
-                        displayed_games.remove(stopped_program)
+                        #displayed_games.remove(stopped_program)
                         prev_game_set = False
-                        reset = False 
+                        reset = True 
                     
                     if game_folder == None:
                         reset = True           
@@ -4720,11 +4737,11 @@ if __name__ == '__main__':
      
             except Exception as e:
                 import traceback
-                with open("notification_error.log", "w") as f:
+                with open("crash_log.txt", "w") as f:
                     traceback.print_exc(file=f)
         except Exception as e:
             import traceback
-            with open("notification_error.log", "w") as f:
+            with open("crash_log.txt", "w") as f:
                 traceback.print_exc(file=f)
         finally:
             _notification_ready.set()
