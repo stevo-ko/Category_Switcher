@@ -3455,6 +3455,7 @@ def main_logic():
                     # Exakte Exe-Namen prüfen
                     if exe_lower in excluded_exe_exact:
                         continue
+                    
                     if "retroarch" in exe_lower and exe_lower.endswith(".exe"):
                         continue
                         if is_playnite_running() or game_set:

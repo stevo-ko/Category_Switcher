@@ -46,7 +46,7 @@ jobs:
 
           # Dateien & Ordner kopieren
           Copy-Content @("Release EXE\_internal", "Release EXE\Category_Switcher.exe", "Resources") $tempDir
-          Copy-Content @("Version.json","settings.xaml","Changelog.md","Category_Switcher.stevo","LICENSE") $tempDir
+          Copy-Content @("Version.json","settings.xaml","Changelog.md","Category_Switcher.stevo","LICENSE","matchfixes.switcher", "Matchfixes_Changelog.md") $tempDir
 
           # Prüfen, ob Update.stevo existiert
           $updateFile = "Update.stevo"
@@ -83,7 +83,6 @@ jobs:
           Compress-Archive -Path "$tempDir\*" -DestinationPath "Category_Switcher Source.zip" -Force
           Remove-Item -Recurse -Force $tempDir
 
-      # 5️⃣ Changelog für aktuellen Tag auslesen (DE + EN)
       # 5️⃣ Changelog für aktuellen Tag auslesen (DE + EN)
       - name: Extract changelog for current tag
         id: changelog
