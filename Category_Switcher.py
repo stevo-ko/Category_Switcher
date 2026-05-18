@@ -3828,24 +3828,24 @@ def main_logic():
                             # Search Twitch Category
                             categories = search_twitch_category(token, game_folder)
     ##                        print(categories)
-                            # if not categories:
+                            if not categories:
 
-                            #     if not alternatives_tried:
-                            #         window_title = get_window_title_by_exe(pid) 
-                            #         categories_window_title = search_twitch_category(token, window_title) 
-                            #         if not categories_window_title:
+                                if not alternatives_tried:
+                                    window_title = get_window_title_by_exe(pid) 
+                                    categories_window_title = search_twitch_category(token, window_title) 
+                                    if not categories_window_title:
                                         
-                            #             wiki_name = search_wikipedia_game(game_folder)
+                                        wiki_name = search_wikipedia_game(game_folder)
 
-                            #             if wiki_name != window_title:
+                                        if wiki_name != window_title:
                                                                                 
-                            #                 categories = search_twitch_category(token, wiki_name)  
-                            #                 alternatives_tried = True
-                            #             else:
-                            #                 alternatives_tried = True  
+                                            categories = search_twitch_category(token, wiki_name)  
+                                            alternatives_tried = True
+                                        else:
+                                            alternatives_tried = True  
                                             
-                            #         else:
-                            #             categories = categories_window_title                         
+                                    else:
+                                        categories = categories_window_title                         
                                                         
                             # Speicher die Spiel- und Twitch-Daten in einem Dictionary
                             # Save game and twitch data in a dictionary
