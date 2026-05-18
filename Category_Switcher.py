@@ -2219,8 +2219,8 @@ message = False
 server = None
 kick_failed = False
 default_category = None
-twitch_category = None
-kick_category = None
+default_twitch_category = None
+default_kick_category = None
 known_exe_names = ["blender.exe","UnrealEditor.exe","Unity Hub.exe","Code.exe","devenv.exe",
                     "Rider64.exe","Rider.exe","pycharm64.exe","pycharm.exe","idea64.exe","idea.exe",
                     "webstorm64.exe","webstorm.exe","phpstorm64.exe","phpstorm.exe","clion64.exe","clion.exe",
@@ -2270,7 +2270,7 @@ def main_logic():
     global rules, excluded_exe_patterns, excluded_exe_names, excluded_exe_exact, game_name_mappings, game_name_exact 
     
     ## Default categorys when none is found
-    global default_category, twitch_category, kick_category
+    global default_category, default_twitch_category, default_kick_category
     
 ##    print(config_path)
 ##    print(last_modified)
@@ -2332,8 +2332,8 @@ def main_logic():
     # Kategorie wenn keine gefunden wird
     # Category when None is found
     default_category = config["default_category"]["enabled"]
-    twitch_category = config["default_category"]["twitch_category"]
-    kick_category = config["default_category"]["kick_category"]
+    default_twitch_category = config["default_category"]["twitch_category"]
+    default_kick_category = config["default_category"]["kick_category"]
     
     last_modified = os.path.getmtime(config_path)
     
@@ -2350,8 +2350,8 @@ def main_logic():
         global message
         global matchfix_update_toast_notification
         global default_category
-        global twitch_category
-        global kick_category
+        global default_twitch_category
+        global default_kick_category
         nonlocal streamerbot_url
         nonlocal streamerbot_port
         nonlocal streamerbot_get_actions_name
@@ -2421,8 +2421,8 @@ def main_logic():
         matchfix_update_toast_notification = bool(config["options"]["matchfix_update_toast_notification"])
 
         default_category = config["default_category"]["enabled"]
-        twitch_category = config["default_category"]["twitch_category"]
-        kick_category = config["default_category"]["kick_category"]
+        default_twitch_category = config["default_category"]["twitch_category"]
+        default_kick_category = config["default_category"]["kick_category"]
 
 
         german_variants = {"deutsch", "german", "de", "ger", "deu"}
@@ -4015,6 +4015,7 @@ def main_logic():
                                                         logging.info(f"⚠ Path from which game name got extracted '{path_norm}")
                                                 kick_failed = True
                                                 displayed_no_category_kick = True
+                                                
                                 
                                     saved_games.append(game_data)
                                     current_seen.add(unique_id)
@@ -4044,6 +4045,10 @@ def main_logic():
                                         category_name = best_match['name']
                                         if kick_enabled:
                                             kick_category_name = kick_best_match['name']
+                                            if default_category:
+                                                if displayed_no_category_kick:
+                                                    kick_category_name = default_kick_category
+                                            
                                         displayed_games.add(game_folder)
                                         first_save = True
                                         if is_streamerbot_running():
@@ -4080,21 +4085,21 @@ def main_logic():
                                         else:
 
                                             if language == 1:
-                                                print(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden. Verwende Standard-Kategorie '{twitch_category}'.")
+                                                print(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden. Verwende Standard-Kategorie '{default_twitch_category}'.")
                                                 if not show_console:
                                                     start_logging()
-                                                    logging.info(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden. Verwende Standard-Kategorie '{twitch_category}'.")
+                                                    logging.info(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden. Verwende Standard-Kategorie '{default_twitch_category}'.")
                                                     logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
                                             if language == 0:                                                
-                                                print(f"⚠️ No Twitch Category found for '{game_folder}'. Using default category '{twitch_category}'.")
+                                                print(f"⚠️ No Twitch Category found for '{game_folder}'. Using default category '{default_twitch_category}'.")
                                                 if not show_console:
                                                     start_logging()
                                                     logging.info(f"⚠️ No Twitch Category found for '{game_folder}'. Using default category '{twitch_category}'.")
                                                     logging.info(f"⚠ Path from which game name got extracted '{path_norm}")  
                                             displayed_games.add(game_folder)  
-                                            category_name = twitch_category
+                                            category_name = default_twitch_category
                                             if kick_enabled:
-                                                kick_category_name = kick_category
+                                                kick_category_name = default_kick_category
                                             if is_streamerbot_running():
                                                 if category_set_already != category_name:
                                                     if kick_enabled:
@@ -4130,21 +4135,21 @@ def main_logic():
                                                 logging.info(f"⚠ Path from which game name got extracted '{path_norm}")
                                     else:
                                         if language == 1:
-                                            print(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden. Verwende Standard-Kategorie '{twitch_category}'.")
+                                            print(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden. Verwende Standard-Kategorie '{default_twitch_category}'.")
                                             if not show_console:
                                                 start_logging()
-                                                logging.info(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden. Verwende Standard-Kategorie '{twitch_category}'.")
+                                                logging.info(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden. Verwende Standard-Kategorie '{default_twitch_category}'.")
                                                 logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
                                         if language == 0:                                                
-                                            print(f"⚠️ No Twitch Category found for '{game_folder}'. Using default category '{twitch_category}'.")
+                                            print(f"⚠️ No Twitch Category found for '{game_folder}'. Using default category '{default_twitch_category}'.")
                                             if not show_console:
                                                 start_logging()
-                                                logging.info(f"⚠️ No Twitch Category found for '{game_folder}'. Using default category '{twitch_category}'.")
+                                                logging.info(f"⚠️ No Twitch Category found for '{game_folder}'. Using default category '{default_twitch_category}'.")
                                                 logging.info(f"⚠ Path from which game name got extracted '{path_norm}")  
                                         displayed_games.add(game_folder)    
-                                        category_name = twitch_category
+                                        category_name = default_twitch_category
                                         if kick_enabled:
-                                            kick_category_name = kick_category
+                                            kick_category_name = default_kick_category
                                         if is_streamerbot_running():
                                             if category_set_already != category_name:
                                                 if kick_enabled:
