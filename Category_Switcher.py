@@ -151,7 +151,12 @@ default_config = {
         "delay_playnite": 0,
         "kick_enabled": False,
         "playnite_enabled": False,
-        "matchfix_update_toast_notification": True
+        "matchfix_update_toast_notification": True,
+    },
+    "default_category": {
+        "enabled": False,
+        "twitch_category": "Just Chatting",
+        "kick_category": "Just Chatting",
     }
 }
 
@@ -1302,89 +1307,98 @@ TOAST_APP_NAME = "Category Switcher"
 TOAST_FLAG     = os.path.join(programm_ordner, "_internal", ".toast_registered")
 matchfix_update_toast_notification = bool(config["options"]["matchfix_update_toast_notification"])
 _toast_build_params = {}
+verbose = False
  
 def _get_text(de, en):
     return de if language == 1 else en
- 
+
+def _vlog(msg: str) -> None:
+    if not verbose:
+        return
+    import datetime
+    with open("crash_log.txt", "a", encoding="utf-8") as f:
+        f.write(f"[{datetime.datetime.now().strftime('%H:%M:%S.%f')}] {msg}\n")
+
 def _toast_cleanup() -> None:
+    _vlog("_toast_cleanup gestartet")
     if os.path.exists(TOAST_FLAG):
         try:
             registered = [i[0] for i in Toast.list_app_ids()]
+            _vlog(f"Registrierte App IDs: {registered}")
             if TOAST_APP_ID in registered:
                 Toast.unregister_app_id(TOAST_APP_ID)
-        except Exception:
-            pass
+                _vlog("unregister_app_id OK")
+        except Exception as e:
+            _vlog(f"unregister FEHLER: {e}")
         try:
             os.remove(TOAST_FLAG)
-        except Exception:
-            pass
-        
-        
+            _vlog("TOAST_FLAG entfernt")
+        except Exception as e:
+            _vlog(f"TOAST_FLAG entfernen FEHLER: {e}")
+    else:
+        _vlog("TOAST_FLAG existiert nicht – kein Cleanup nötig")
+
 def _toast_init() -> None:
+    _vlog("=== _toast_init gestartet ===")
     _toast_cleanup()
-    os.makedirs(os.path.join(programm_ordner, "_internal"), exist_ok=True)
-    Toast.register_app_id(TOAST_APP_ID, TOAST_APP_NAME, icon_uri=get_resource_path("icon.ico"))
-    open(TOAST_FLAG, "w").close()
+    time.sleep(0.5)
+    try:
+        os.makedirs(os.path.join(programm_ordner, "_internal"), exist_ok=True)
+        Toast.register_app_id(TOAST_APP_ID, TOAST_APP_NAME, icon_uri=get_resource_path("icon.ico"))
+        open(TOAST_FLAG, "w").close()
+        _vlog("register_app_id OK")
+    except Exception as e:
+        _vlog(f"register_app_id FEHLER: {e}")
 
 def _build_result_toast(de_status: str, en_status: str, counts: dict, changed: bool = False, first_download: bool = False, show_popup: bool = True) -> Toast:
-    t = Toast(app_id=TOAST_APP_ID,duration=ToastDuration.LONG)
+    t = Toast(app_id=TOAST_APP_ID, duration=ToastDuration.LONG)
     if not show_popup:
         t.show_popup = False
     image = False
     if image:
-        elements= [
-            
+        elements = [
             Image(
                 source=f"ms-appx:///{get_resource_path('app.png').replace(os.sep, '/')}",
                 placement=ToastImagePlacement.LOGO,
                 is_circle=True,
-            ),            
+            ),
             Text(de_status if language == 1 else en_status, style=ToastTextStyle.TITLE, align=ToastTextAlign.CENTER),
-            
         ]
     else:
-            
         elements = [
             Text(de_status if language == 1 else en_status, style=ToastTextStyle.TITLE, align=ToastTextAlign.CENTER),
-        ]    
-    
-    # Version nur bei echtem Update anzeigen
+        ]
+
     if changed:
         elements.append([
             [
                 Text(_get_text("Alte Version    \u279c", "Old Version    \u279c"), style=ToastTextStyle.SUBTITLESUBTLE, align=ToastTextAlign.RIGHT),
-                Text(f"v{counts.get('old_version', '?')}",    style=ToastTextStyle.SUBTITLESUBTLE, align=ToastTextAlign.CENTER),
-                
+                Text(f"v{counts.get('old_version', '?')}", style=ToastTextStyle.SUBTITLESUBTLE, align=ToastTextAlign.CENTER),
             ],
             [
-                Text(_get_text("Neue Version", "New Version"),   style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
-                
-                Text(f"v{counts['version']}",                 style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
+                Text(_get_text("Neue Version", "New Version"), style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
+                Text(f"v{counts['version']}", style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
             ],
         ])
-        # Gruppe 1: Mappings + Exact
         elements.append([
             [
-                Text("Mappings",              style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
-                Text(str(counts['mappings']), style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+                Text("Mappings", style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['mappings']), style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
             ],
             [
-                Text("Exact",                style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
-                Text(str(counts['exact']),   style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+                Text("Exact", style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['exact']), style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
             ],
         ])
-
-        # Gruppe 2: Excluded + EXEs
         elements.append([
             [
                 Text(_get_text("Ausgeschlossen", "Excluded"), style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
-                Text(str(counts['names']),                    style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+                Text(str(counts['names']), style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
             ],
             [
-                Text("EXEs",                   style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
-                Text(str(counts['exact_exe']), style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+                Text("EXEs", style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['exact_exe']), style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
             ],
-        
         ])
         elements.append(
             Button(
@@ -1395,34 +1409,29 @@ def _build_result_toast(de_status: str, en_status: str, counts: dict, changed: b
     elif first_download:
         elements.append([
             [
-                Text(_get_text("Version", "Version"),   style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
-                
-                Text(f"v{counts['version']}",                 style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
+                Text(_get_text("Version", "Version"), style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
+                Text(f"v{counts['version']}", style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
             ],
         ])
-        # Gruppe 1: Mappings + Exact
         elements.append([
             [
-                Text("Mappings",              style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
-                Text(str(counts['mappings']), style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+                Text("Mappings", style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['mappings']), style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
             ],
             [
-                Text("Exact",                style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
-                Text(str(counts['exact']),   style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+                Text("Exact", style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['exact']), style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
             ],
         ])
-
-        # Gruppe 2: Excluded + EXEs
         elements.append([
             [
                 Text(_get_text("Ausgeschlossen", "Excluded"), style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
-                Text(str(counts['names']),                    style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+                Text(str(counts['names']), style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
             ],
             [
-                Text("EXEs",                   style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
-                Text(str(counts['exact_exe']), style=ToastTextStyle.SUBTITLE,      align=ToastTextAlign.CENTER),
+                Text("EXEs", style=ToastTextStyle.BASESUBTLE, align=ToastTextAlign.CENTER),
+                Text(str(counts['exact_exe']), style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
             ],
-        
         ])
         elements.append(
             Button(
@@ -1433,53 +1442,54 @@ def _build_result_toast(de_status: str, en_status: str, counts: dict, changed: b
     else:
         elements.append([
             [
-                Text(_get_text("Version", "Version"),   style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
-                
-                Text(f"v{counts['version']}",                 style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
+                Text(_get_text("Version", "Version"), style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
+                Text(f"v{counts['version']}", style=ToastTextStyle.SUBTITLE, align=ToastTextAlign.CENTER),
             ],
         ])
-        
-
-
 
     t.elements = elements
-    
     _toast_build_params[id(t)] = (de_status, en_status, counts, changed, first_download)
     return t
- 
+
 def _load_rules_with_toast(toast_obj=None):
+    _vlog(f"_load_rules_with_toast gestartet (toast_obj={'vorhanden' if toast_obj else 'None'})")
     key, iv    = get_key_and_iv(MATCH_ENC_KEY)
     local_path = os.path.join(programm_ordner, "matchfixes.switcher")
     local_changelog_path = os.path.join(programm_ordner, "Matchfixes_Changelog.md")
- 
+
     def _upd(de_status, en_status, progress, de_detail, en_detail, percent):
         if toast_obj:
-            toast_obj.update({
-                "status":   de_status   if language == 1 else en_status,
-                "progress": progress,
-                "detail":   de_detail   if language == 1 else en_detail,
-                "percent":  percent,
-            })
- 
+            _vlog(f"Toast update: {en_status} ({percent})")
+            try:
+                toast_obj.update({
+                    "status":   de_status if language == 1 else en_status,
+                    "progress": progress,
+                    "detail":   de_detail if language == 1 else en_detail,
+                    "percent":  percent,
+                })
+                _vlog("Toast update OK")
+            except Exception as e:
+                _vlog(f"Toast update fehlgeschlagen: {e}")
+
     def decrypt(raw):
         verified  = verify_and_strip_hmac(raw, key)
         decrypted = encrypt_decrypt(verified, key, iv)
         return json.loads(decrypted)
- 
+
     def encrypt_and_save(data):
         raw       = json.dumps(data, ensure_ascii=False).encode()
         encrypted = encrypt_decrypt(raw, key, iv)
         secured   = add_hmac(encrypted, key)
         with open(local_path, "wb") as f:
             f.write(secured)
- 
+
     def merge(local, online):
         if local is None:
             return online, True
         merged  = {k: online[k] for k in online}
         changed = merged != local
         return merged, changed
- 
+
     def count(r):
         return {
             "version":   r.get("version", "?"),
@@ -1488,99 +1498,107 @@ def _load_rules_with_toast(toast_obj=None):
             "names":     len(r.get("excluded_exe_names_in_code", [])),
             "exact_exe": len(r.get("excluded_exe_exact_in_code", [])),
         }
- 
-    # 1. Prüfe Update
-    _upd("🔍 Prüfe Update…",     "🔍 Checking for update…",
+
+    _upd("🔍 Prüfe Update…", "🔍 Checking for update…",
          0.1,
-         "Verbinde mit Server…", "Connecting to server…",   "10%")
- 
+         "Verbinde mit Server…", "Connecting to server…", "10%")
+
     online_raw = None
     try:
         response = requests.get(MATCH_URL, timeout=5)
         if response.status_code == 200:
             online_raw = response.content
-    except:
-        pass
+            _vlog(f"Online Datei geladen ({len(online_raw)} bytes)")
+        else:
+            _vlog(f"Online Datei Statuscode: {response.status_code}")
+    except Exception as e:
+        _vlog(f"Online Datei Fehler: {e}")
+
     if online_raw is not None:
-        # 2. Download
-        _upd("⬇️ Update herunterladen…", "⬇️ Downloading update…", 
-            0.4,
-            "Herunterladen…",         "Downloading…",            "40%")
+        _upd("⬇️ Update herunterladen…", "⬇️ Downloading update…",
+             0.4,
+             "Herunterladen…", "Downloading…", "40%")
         time.sleep(0.3)
     else:
-        
         _upd("❌ Datei Online nicht gefunden", "❌ File online not found",
-            0.4,
-            "Datei online nicht gefunden", "File online not found", "40%")
+             0.4,
+             "Datei online nicht gefunden", "File online not found", "40%")
         time.sleep(0.3)
+
     local_raw = None
     first_download = False
 
     if os.path.exists(local_path):
         with open(local_path, "rb") as f:
             local_raw = f.read()
+        _vlog(f"Lokale Datei geladen ({len(local_raw)} bytes)")
     elif online_raw:
         try:
             with open(local_path, "wb") as f:
                 f.write(online_raw)
             local_raw = online_raw
             first_download = True
-        except:
-            pass
+            _vlog("Erster Download – lokal gespeichert")
+        except Exception as e:
+            _vlog(f"Lokales Speichern fehlgeschlagen: {e}")
 
     online_rules = local_rules = None
 
     if online_raw:
         try:
             online_rules = decrypt(online_raw)
-        except:
-            pass
+            _vlog("Online Rules entschlüsselt OK")
+        except Exception as e:
+            _vlog(f"Online Rules entschlüsseln FEHLER: {e}")
 
     if local_raw:
         try:
             local_rules = decrypt(local_raw)
-        except:
-            pass
-        
+            _vlog("Lokale Rules entschlüsselt OK")
+        except Exception as e:
+            _vlog(f"Lokale Rules entschlüsseln FEHLER: {e}")
+
     changelog_raw = None
     try:
         response = requests.get(MATCH_CHANGELOG_URL, timeout=5)
         if response.status_code == 200:
             changelog_raw = response.content
-    except:
-        pass
+            _vlog(f"Changelog geladen ({len(changelog_raw)} bytes)")
+        else:
+            _vlog(f"Changelog Statuscode: {response.status_code}")
+    except Exception as e:
+        _vlog(f"Changelog Fehler: {e}")
 
     if changelog_raw is not None:
-        # Online verfügbar → immer lokal überschreiben
         try:
             with open(local_changelog_path, "wb") as f:
                 f.write(changelog_raw)
-        except:
-            pass
+            _vlog("Changelog lokal gespeichert")
+        except Exception as e:
+            _vlog(f"Changelog speichern FEHLER: {e}")
         _upd("⬇️ Lade Changelog…", "⬇️ Loading changelog…",
              0.7,
-             "Verarbeite Daten…",  "Processing data…",  "70%")
+             "Verarbeite Daten…", "Processing data…", "70%")
         time.sleep(0.3)
     else:
-        # Kein Online → lokalen verwenden falls vorhanden
         if os.path.exists(local_changelog_path):
             with open(local_changelog_path, "rb") as f:
                 changelog_raw = f.read()
+            _vlog("Lokalen Changelog verwendet")
             _upd("⚠️ Changelog online nicht gefunden", "⚠️ Changelog online not found",
-                0.7,
-                "Weiter…",  "Continuing…",  "70%")
+                 0.7,
+                 "Weiter…", "Continuing…", "70%")
         else:
+            _vlog("Kein Changelog verfügbar")
             _upd("❌ Changelog nicht verfügbar", "❌ Changelog not available",
                  0.7,
                  "Kein Changelog verfügbar", "No changelog available", "70%")
-            
         time.sleep(0.3)
 
     if online_rules:
-        # ── Erster Download ──────────────────────────────
         if first_download:
             counts = count(online_rules)
-
+            _vlog(f"Erster Download abgeschlossen: {counts}")
             _upd("⬇️ Lade Match Liste…", "⬇️ Loading match list…",
                  0.9, "Abgeschlossen…", "Done…", "90%")
             return online_rules, True, _build_result_toast(
@@ -1591,25 +1609,27 @@ def _load_rules_with_toast(toast_obj=None):
                 first_download=True
             ), True
 
-        # ── Normaler Merge ────────────────────────────────
         merged, changed = merge(local_rules, online_rules)
         counts = count(merged)
         old_version = local_rules.get("version", "?") if local_rules else "?"
         counts["old_version"] = old_version
+        _vlog(f"Merge abgeschlossen: changed={changed}, version={counts['version']}")
 
         if changed:
             try:
                 encrypt_and_save(merged)
+                _vlog("Merged Rules gespeichert")
                 if language == 1:
                     logging.info("✅ matchfixes.switcher aktualisiert")
                 else:
                     logging.info("✅ matchfixes.switcher updated")
             except Exception as e:
+                _vlog(f"Merged Rules speichern FEHLER: {e}")
                 logging.warning(e)
 
         _upd("⬇️ Lade Matchfix Liste…", "⬇️ Loading matchfix list…",
              0.9,
-             "Abgeschlossen…",       "Done…",                   "90%")
+             "Abgeschlossen…", "Done…", "90%")
 
         return merged, changed, _build_result_toast(
             "✅ Matchfix Liste aktualisiert" if changed else "✅ Bereits aktuell",
@@ -1621,54 +1641,52 @@ def _load_rules_with_toast(toast_obj=None):
     if local_rules:
         counts = count(local_rules)
         counts["old_version"] = "?"
+        _vlog(f"Nur lokale Rules verfügbar: {counts}")
         _upd("⬇️ Lade Match Liste…", "⬇️ Loading match list…",
              0.9,
-             "Abgeschlossen…",       "Done…",                   "90%")
-        
+             "Abgeschlossen…", "Done…", "90%")
         return local_rules, False, _build_result_toast(
             "⚠️ Nur lokal verfügbare Matchfixes",
             "⚠️ Only local available matchfixes",
             counts
-        ), False 
+        ), False
 
+    _vlog("Keine Rules verfügbar – weder online noch lokal")
     _upd("❌ Laden fehlgeschlagen", "❌ Load failed",
          1.0,
-         "Keine Daten verfügbar",   "No data available",       "100%")
+         "Keine Daten verfügbar", "No data available", "100%")
 
     fail_toast = Toast(app_id=TOAST_APP_ID, duration=ToastDuration.LONG)
     fail_toast.elements = [
         Text(_get_text("❌ Matchfix Liste nicht verfügbar", "❌ Matchfix list unavailable"), style=ToastTextStyle.TITLE),
         Text(_get_text("Keine Verbindung und keine lokalen Daten.", "No connection and no local data."))
     ]
-
-    
     return None, False, fail_toast, False
-
-    #return None, False, None, False
-
-
 
 async def _run_update_notification():
     global _active_toast, rules, _toast_build_params
 
     loop = asyncio.get_event_loop()
-
     loop.set_exception_handler(
-        lambda loop, ctx: None 
-        if isinstance(ctx.get("exception"), (asyncio.InvalidStateError, RuntimeError)) 
+        lambda loop, ctx: None
+        if isinstance(ctx.get("exception"), (asyncio.InvalidStateError, RuntimeError))
         else loop.default_exception_handler(ctx)
     )
-    
+
+    _vlog("=== _run_update_notification gestartet ===")
     _toast_init()
+
     if not matchfix_update_toast_notification:
-        # Kein Toast, aber Rules normal laden
+        _vlog("matchfix_update_toast_notification = False, lade ohne Toast")
         rules_result, _, _, _ = await asyncio.get_event_loop().run_in_executor(
             None, _load_rules_with_toast, None
         )
         rules = rules_result
+        _vlog(f"Rules geladen: {rules_result is not None}")
         _notification_ready.set()
         return rules_result
-    
+
+    _vlog("Toast wird erstellt...")
     toast = Toast(app_id=TOAST_APP_ID, toast_id="update-toast")
     _active_toast = toast
     toast.elements = [
@@ -1676,88 +1694,115 @@ async def _run_update_notification():
         Progress(value="{progress}", status="{detail}", display_value="{percent}"),
     ]
 
-    show_task = asyncio.create_task(
-        toast.show({
-            "status":   _get_text("🔍 Prüfe Update…",   "🔍 Checking for update…"),
-            "progress": 0.0,
-            "detail":   _get_text("Starte…",             "Starting…"),
-            "percent":  "0%",
-        })
-    )
+    async def _show_and_signal():
+        _vlog("_show_and_signal...")
+        
+        _vlog("sleep ende, starte toast.show()")
+        try:
+            await toast.show({
+                "status":   _get_text("🔍 Prüfe Update…",   "🔍 Checking for update…"),
+                "progress": 0.0,
+                "detail":   _get_text("Starte…",             "Starting…"),
+                "percent":  "0%",
+            })
+            _vlog("toast.show() beendet")
+        except RuntimeError as e:
+            _vlog(f"Toast fehlgeschlagen: {e}")
+            if "-2143420140" in str(e):
+                _vlog("Benachrichtigungen blockiert – Toast wird übersprungen")
+                if matchfix_update_toast_notification:
+                    if language == 1:
+                        print("⚠️ Benachrichtigungen sind ausgeschaltet oder Bitte nicht stören ist aktiviert. Toast Benachrichtigungen werden nicht angezeigt.")
+                    if language == 0:
+                        print("⚠️ Notifications are disabled or Do Not Disturb is active. Toast notifications will not be displayed.")
+            else:
+                _vlog(f"Unbekannter Toast Fehler: {e}")
+        _vlog("toast.show() beendet")
 
-    await asyncio.sleep(0.5)
+    show_task = asyncio.create_task(_show_and_signal())
+    _vlog("show_task erstellt, warte 1s...")
+    await asyncio.sleep(2)
+    _vlog("Sleep fertig, starte Executor...")
 
-
-
-    rules_result, was_changed, result_toast, first_download = await asyncio.get_event_loop().run_in_executor(
-        None, _load_rules_with_toast, toast
-    )
+    try:
+        rules_result, was_changed, result_toast, first_download = await asyncio.get_event_loop().run_in_executor(
+            None, _load_rules_with_toast, toast
+        )
+        _vlog(f"Executor fertig: rules={rules_result is not None}, changed={was_changed}, first={first_download}")
+    except Exception as e:
+        import traceback
+        _vlog(f"Executor FEHLER:\n{traceback.format_exc()}")
+        rules_result, was_changed, result_toast, first_download = None, False, None, False
 
     rules = rules_result
-    if matchfix_update_toast_notification:        
+
+    if matchfix_update_toast_notification:
         await asyncio.sleep(1.0)
         toast.hide()
         show_task.cancel()
         _active_toast = None
-    
+        _vlog("Progress Toast versteckt")
+
         if result_toast:
-                _notification_ready.set()
-                if was_changed or first_download:
-                    _dismissed = asyncio.Event()
+            _notification_ready.set()
+            if was_changed or first_download:
+                _vlog("Zeige Result Toast (changed/first_download)")
+                _dismissed = asyncio.Event()
 
-                    def _on_toast_result(result: ToastResult):
-                        _dismissed.set()
-                        if result.arguments == "changelog":
-                            QTimer.singleShot(0, _show_changelog)
+                def _on_toast_result(result: ToastResult):
+                    _dismissed.set()
+                    if result.arguments == "changelog":
+                        QTimer.singleShot(0, _show_changelog)
 
-                    result_toast.on_result(_on_toast_result)
-                    show_result = asyncio.create_task(result_toast.show())
+                result_toast.on_result(_on_toast_result)
+                show_result = asyncio.create_task(result_toast.show())
 
-                    for _ in range(100):  # 10 Sekunden in 0.1s Schritten
-                        if _dismissed.is_set():
-                            break
-                        await asyncio.sleep(0.1)
-                        
-                    result_toast.hide()
-                    _active_toast = None
-                    params = _toast_build_params.get(id(result_toast))
-                    if params:
-                        silent = _build_result_toast(*params, show_popup=False)
-                        _active_toast = silent
+                for _ in range(100):
+                    if _dismissed.is_set():
+                        break
+                    await asyncio.sleep(0.1)
 
-                        @silent.on_result
-                        def _silent_result(result: ToastResult):
-                            if result is not None and result.arguments == "changelog":
-                                _show_changelog()
+                result_toast.hide()
+                _active_toast = None
+                params = _toast_build_params.get(id(result_toast))
+                if params:
+                    silent = _build_result_toast(*params, show_popup=False)
+                    _active_toast = silent
+                    _vlog("Silent Toast wird gestartet")
 
-                        _silent_task = asyncio.create_task(silent.show())
+                    @silent.on_result
+                    def _silent_result(result: ToastResult):
+                        if result is not None and result.arguments == "changelog":
+                            _show_changelog()
 
-                elif rules_result is None:
-                    show_result = asyncio.create_task(result_toast.show())
-                    await asyncio.sleep(10.0)
-                    result_toast.hide()
+                    _silent_task = asyncio.create_task(silent.show())
 
+            elif rules_result is None:
+                _vlog("Zeige Fehler Toast")
+                show_result = asyncio.create_task(result_toast.show())
+                await asyncio.sleep(10.0)
+                result_toast.hide()
+
+                silent = Toast(app_id=TOAST_APP_ID, show_popup=False)
+                silent.elements = result_toast.elements
+                _active_toast = silent
+                _silent_task = asyncio.create_task(silent.show())
+
+            else:
+                _vlog("Zeige 'bereits aktuell' Toast")
+                show_result = asyncio.create_task(result_toast.show())
+                _active_toast = result_toast
+                await asyncio.sleep(10.0)
+                result_toast.hide()
+                _active_toast = None
+
+                if rules_result is None:
                     silent = Toast(app_id=TOAST_APP_ID, show_popup=False)
                     silent.elements = result_toast.elements
                     _active_toast = silent
                     _silent_task = asyncio.create_task(silent.show())
 
-                else:
-                    show_result = asyncio.create_task(result_toast.show())
-                    _active_toast = result_toast
-                    await asyncio.sleep(10.0)
-                    result_toast.hide()
-                    _active_toast = None
-
-                    if rules_result is None:
-                        silent = Toast(app_id=TOAST_APP_ID, show_popup=False)
-                        silent.elements = result_toast.elements
-                        _active_toast = silent
-                        _silent_task = asyncio.create_task(silent.show())
-    
-        
-
-    #_toast_cleanup()
+    _vlog("=== _run_update_notification beendet ===")
     return rules_result
 # Logging-Queue
 log_queue = queue.Queue()
@@ -2173,6 +2218,9 @@ delay_playnite = 0
 message = False
 server = None
 kick_failed = False
+default_category = None
+twitch_category = None
+kick_category = None
 known_exe_names = ["blender.exe","UnrealEditor.exe","Unity Hub.exe","Code.exe","devenv.exe",
                     "Rider64.exe","Rider.exe","pycharm64.exe","pycharm.exe","idea64.exe","idea.exe",
                     "webstorm64.exe","webstorm.exe","phpstorm64.exe","phpstorm.exe","clion64.exe","clion.exe",
@@ -2213,13 +2261,16 @@ def main_logic():
     global delay_programming, delay_general, delay_playnite, game_stopped, program_stopped
     
     ## kick globals
-    global kick_token, kick_client_id, kick_client_secret, kick_enabled, kick_missing, kick_failed
+    global kick_token, kick_client_id, kick_client_secret, kick_enabled, kick_missing, kick_failed, displayed_no_category_kick
 
     ## Playnite globals
     global _last_check, _last_result, Playnite_exit, Playnite_Game_Retry, playnite_enabled, save_games_to_file, observer, filepath, game_set, Playnite_Game_Stopped, watcher_started, waiting_for_game, game_started_event, latest_game_event, playnite_running 
 
     ## Hardcoded Matches
-    global rules, excluded_exe_patterns, excluded_exe_names, excluded_exe_exact, game_name_mappings, game_name_exact    
+    global rules, excluded_exe_patterns, excluded_exe_names, excluded_exe_exact, game_name_mappings, game_name_exact 
+    
+    ## Default categorys when none is found
+    global default_category, twitch_category, kick_category
     
 ##    print(config_path)
 ##    print(last_modified)
@@ -2275,6 +2326,14 @@ def main_logic():
     delay_playnite = int(config["options"]["delay_playnite"])*1000
     kick_enabled = bool(config["options"]["kick_enabled"])
     playnite_enabled = bool(config["options"]["playnite_enabled"])
+    matchfix_update_toast_notification = bool(config["options"]["matchfix_update_toast_notification"])
+    
+    
+    # Kategorie wenn keine gefunden wird
+    # Category when None is found
+    default_category = config["default_category"]["enabled"]
+    twitch_category = config["default_category"]["twitch_category"]
+    kick_category = config["default_category"]["kick_category"]
     
     last_modified = os.path.getmtime(config_path)
     
@@ -2290,6 +2349,9 @@ def main_logic():
         global delay_playnite
         global message
         global matchfix_update_toast_notification
+        global default_category
+        global twitch_category
+        global kick_category
         nonlocal streamerbot_url
         nonlocal streamerbot_port
         nonlocal streamerbot_get_actions_name
@@ -2357,6 +2419,11 @@ def main_logic():
         playnite_enabled = bool(config["options"]["playnite_enabled"])
         setting_language = config["options"]["language"]
         matchfix_update_toast_notification = bool(config["options"]["matchfix_update_toast_notification"])
+
+        default_category = config["default_category"]["enabled"]
+        twitch_category = config["default_category"]["twitch_category"]
+        kick_category = config["default_category"]["kick_category"]
+
 
         german_variants = {"deutsch", "german", "de", "ger", "deu"}
         english_variants = {"englisch", "english", "en", "eng"}
@@ -2810,6 +2877,10 @@ def main_logic():
     # Function to search Twitch-category with the Name
     def search_twitch_category(tokensearch, search_query, _retry=False):
         global token
+
+        if not search_query or not search_query.strip():  # ← Guard
+            return []        
+
         url = "https://api.twitch.tv/helix/search/categories"
         headers = {
             "Authorization": f"Bearer {tokensearch}",
@@ -2819,8 +2890,6 @@ def main_logic():
         params = {"query": search_query}
 
         response = requests.get(url, headers=headers, params=params)
-        
-
 
         if response.status_code == 401:
             if language == 1:
@@ -3759,24 +3828,24 @@ def main_logic():
                             # Search Twitch Category
                             categories = search_twitch_category(token, game_folder)
     ##                        print(categories)
-                            if not categories:
+                            # if not categories:
 
-                                if not alternatives_tried:
-                                    window_title = get_window_title_by_exe(pid) 
-                                    categories_window_title = search_twitch_category(token, window_title) 
-                                    if not categories_window_title:
+                            #     if not alternatives_tried:
+                            #         window_title = get_window_title_by_exe(pid) 
+                            #         categories_window_title = search_twitch_category(token, window_title) 
+                            #         if not categories_window_title:
                                         
-                                        wiki_name = search_wikipedia_game(game_folder)
+                            #             wiki_name = search_wikipedia_game(game_folder)
 
-                                        if wiki_name != window_title:
+                            #             if wiki_name != window_title:
                                                                                 
-                                            categories = search_twitch_category(token, wiki_name)  
-                                            alternatives_tried = True
-                                        else:
-                                            alternatives_tried = True  
+                            #                 categories = search_twitch_category(token, wiki_name)  
+                            #                 alternatives_tried = True
+                            #             else:
+                            #                 alternatives_tried = True  
                                             
-                                    else:
-                                        categories = categories_window_title                         
+                            #         else:
+                            #             categories = categories_window_title                         
                                                         
                             # Speicher die Spiel- und Twitch-Daten in einem Dictionary
                             # Save game and twitch data in a dictionary
@@ -3823,7 +3892,8 @@ def main_logic():
                                 
                             
                                 if kick_enabled:
-                                    
+                                    if unique_id not in seen_processes:
+                                        displayed_no_category_kick = False                                    
                                     kick_categories = search_kick_category(kick_token, kick_game_folder)
                                     
                                     if not kick_categories:
@@ -3840,6 +3910,7 @@ def main_logic():
                                                 kick_categories = kick_categories_window_title
 
                                     if kick_categories:
+                                        
                                         kick_best_match = None
                                         highest_score_kick = 0
 
@@ -3928,20 +3999,22 @@ def main_logic():
                                                 "id": "No Match",
                                                 "thumbnail": "No Match"
                                             }
-                                            kick_missing = False                                  
-                                            if language == 1:
-                                                print(f"⚠️ Keine Kick-Kategorie für '{kick_game_folder}' gefunden.")
-                                                if not show_console:
-                                                    start_logging()
-                                                    logging.info(f"⚠️ Keine Kick-Kategorie für '{kick_game_folder}' gefunden.")
-                                                    logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
-                                            if language == 0:
-                                                print(f"⚠️ No Kick Category found for '{kick_game_folder}'.")
-                                                if not show_console:
-                                                    start_logging()
-                                                    logging.info(f"⚠️ No Kick Category found for '{kick_game_folder}'.")
-                                                    logging.info(f"⚠ Path from which game name got extracted '{path_norm}")
-                                            kick_failed = True
+                                            kick_missing = False
+                                            if not displayed_no_category_kick:                                  
+                                                if language == 1:
+                                                    print(f"⚠️ Keine Kick-Kategorie für '{kick_game_folder}' gefunden.")
+                                                    if not show_console:
+                                                        start_logging()
+                                                        logging.info(f"⚠️ Keine Kick-Kategorie für '{kick_game_folder}' gefunden.")
+                                                        logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
+                                                if language == 0:
+                                                    print(f"⚠️ No Kick Category found for '{kick_game_folder}'.")
+                                                    if not show_console:
+                                                        start_logging()
+                                                        logging.info(f"⚠️ No Kick Category found for '{kick_game_folder}'.")
+                                                        logging.info(f"⚠ Path from which game name got extracted '{path_norm}")
+                                                kick_failed = True
+                                                displayed_no_category_kick = True
                                 
                                     saved_games.append(game_data)
                                     current_seen.add(unique_id)
@@ -3990,19 +4063,47 @@ def main_logic():
                                                         send_message(game_folder, category_name)
                                 else:
                                     if not displayed_warning:
-                                        if language == 1:
-                                            print(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden.")
-                                            if not show_console:
-                                                start_logging()
-                                                logging.info(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden.")
-                                                logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
-                                        if language == 0:
-                                            print(f"⚠️ No Twitch Category found for '{game_folder}'.")
-                                            if not show_console:
-                                                start_logging()
-                                                logging.info(f"⚠️ No Twitch Category found for '{game_folder}'.")
-                                                logging.info(f"⚠ Path from which game name got extracted '{path_norm}")
-                                        
+                                        if not default_category:
+                                            if language == 1:
+                                                print(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden.")
+                                                if not show_console:
+                                                    start_logging()
+                                                    logging.info(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden.")
+                                                    logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
+                                              
+                                            if language == 0:
+                                                print(f"⚠️ No Twitch Category found for '{game_folder}'.")
+                                                if not show_console:
+                                                    start_logging()
+                                                    logging.info(f"⚠️ No Twitch Category found for '{game_folder}'.")
+                                                    logging.info(f"⚠ Path from which game name got extracted '{path_norm}")
+                                        else:
+
+                                            if language == 1:
+                                                print(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden. Verwende Standard-Kategorie '{twitch_category}'.")
+                                                if not show_console:
+                                                    start_logging()
+                                                    logging.info(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden. Verwende Standard-Kategorie '{twitch_category}'.")
+                                                    logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
+                                            if language == 0:                                                
+                                                print(f"⚠️ No Twitch Category found for '{game_folder}'. Using default category '{twitch_category}'.")
+                                                if not show_console:
+                                                    start_logging()
+                                                    logging.info(f"⚠️ No Twitch Category found for '{game_folder}'. Using default category '{twitch_category}'.")
+                                                    logging.info(f"⚠ Path from which game name got extracted '{path_norm}")  
+                                            displayed_games.add(game_folder)  
+                                            category_name = twitch_category
+                                            if kick_enabled:
+                                                kick_category_name = kick_category
+                                            if is_streamerbot_running():
+                                                if category_set_already != category_name:
+                                                    if kick_enabled:
+                                                        category_change(category_name, kick_category_name)
+                                                    else:
+                                                        category_change(category_name)
+                                                    category_set_already = category_name 
+                                        current_seen.add(unique_id)
+                                        process_to_game.setdefault(unique_id, game_folder)                                      
                                         displayed_warning = True
                                         failed = True
                                         if message:
@@ -4013,19 +4114,46 @@ def main_logic():
                                 displayed_warning = True
                             else:
                                 if not displayed_warning:
-                                    if language == 1:
-                                        print(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden.")
-                                        if not show_console:
-                                            start_logging()
-                                            logging.info(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden.")
-                                            logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
-                                    if language == 0:
-                                        print(f"⚠️ No Twitch Category found for '{game_folder}'.")
-                                        if not show_console:
-                                            start_logging()
-                                            logging.info(f"⚠️ No Twitch Category found for '{game_folder}'.")
-                                            logging.info(f"⚠ Path from which game name got extracted '{path_norm}")
-                                    
+                                    if not default_category:
+                                        if language == 1:
+                                            print(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden.")
+                                            if not show_console:
+                                                start_logging()
+                                                logging.info(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden.")
+                                                logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
+                                            
+                                        if language == 0:
+                                            print(f"⚠️ No Twitch Category found for '{game_folder}'.")
+                                            if not show_console:
+                                                start_logging()
+                                                logging.info(f"⚠️ No Twitch Category found for '{game_folder}'.")
+                                                logging.info(f"⚠ Path from which game name got extracted '{path_norm}")
+                                    else:
+                                        if language == 1:
+                                            print(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden. Verwende Standard-Kategorie '{twitch_category}'.")
+                                            if not show_console:
+                                                start_logging()
+                                                logging.info(f"⚠️ Keine Twitch-Kategorie für '{game_folder}' gefunden. Verwende Standard-Kategorie '{twitch_category}'.")
+                                                logging.info(f"⚠ Pfad aus welchem Name extrahiert wurde '{path_norm}")
+                                        if language == 0:                                                
+                                            print(f"⚠️ No Twitch Category found for '{game_folder}'. Using default category '{twitch_category}'.")
+                                            if not show_console:
+                                                start_logging()
+                                                logging.info(f"⚠️ No Twitch Category found for '{game_folder}'. Using default category '{twitch_category}'.")
+                                                logging.info(f"⚠ Path from which game name got extracted '{path_norm}")  
+                                        displayed_games.add(game_folder)    
+                                        category_name = twitch_category
+                                        if kick_enabled:
+                                            kick_category_name = kick_category
+                                        if is_streamerbot_running():
+                                            if category_set_already != category_name:
+                                                if kick_enabled:
+                                                    category_change(category_name, kick_category_name)
+                                                else:
+                                                    category_change(category_name)
+                                                category_set_already = category_name                                          
+                                    current_seen.add(unique_id)
+                                    process_to_game.setdefault(unique_id, game_folder)                                    
                                     displayed_warning = True
                                     failed = True
                                     if message:
@@ -4071,7 +4199,7 @@ def main_logic():
         
             time.sleep(1)       
             
-            delayed_reset_called = {}  # Wird verwendet, um Verzögerungen pro Ordner zu verfolgen
+            delayed_reset_called = {}  
 
             def delayed_category_reset(displayed_games, seen_processes, current_seen, stopped_program_snap, previous_game_snap, prev_game_data_snap):
                 global delay_programming, game_folder, program_stopped
@@ -4119,11 +4247,11 @@ def main_logic():
                             reset_stale_id(stopped_program)
                                 
                             if prev_game is not None and prev_game in displayed_games:
-                                if game_data:  # ← direkt verwenden
+                                if game_data: 
                                     category_name = game_data["Twitch Category Name"]
                                     kick_category_name = game_data.get("Kick Category Name", "Just Chatting")
                                     game_folder = prev_game
-                                    previous_game_folder = None  # ← Restore erfolgreich
+                                    previous_game_folder = None 
                                     prev_game_set = False
                                 else:
                                     category_name = "Just Chatting"
@@ -4161,42 +4289,6 @@ def main_logic():
                 delay_seconds = delay_ms / 1000.0
                 threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
                 
-                    # Wenn der Ordner nicht mehr läuft, Reset durchführen
-    #                if reset:                   
-    #                     if stopped_program in displayed_games:
-    #                         displayed_games.remove(stopped_program)
-    #                         category_name = "Just Chatting"
-    #                         kick_category_name = "Just Chatting"
-    #                         failed = False                    
-    #                         if is_streamerbot_running():
-    #                             if category_set_already != category_name:
-    #                                 if kick_enabled:
-    #                                     category_change(category_name, kick_category_name)
-    #                                 else:
-    #                                     category_change(category_name)
-    #                                 if message:
-    #                                     if kick_enabled:
-    #                                         send_message(game_folder, category_name, kick_category_name, kick_failed=False)
-    #                                     else:
-    #                                         send_message(game_folder, category_name)
-    #                         category_set_already = category_name
-    #                         if playnite_enabled:
-    #                             if not Playnite_Game_Stopped:
-    #                                 if watcher_started:
-    #                                     stop_watcher()
-    #                 # Reset den Status nach der Verzögerung
-    #                 delayed_reset_called[stopped_program] = False
-    #                 displayed_warning = False
-    #                 displayed_warning_category = False
-    # ##                print("Delay fertig")
-                    
-    #             # Die Verzögerung in Sekunden (umgerechnet von Millisekunden)
-    #             delay_seconds = delay_ms / 1000.0
-
-    #             # Starte den Thread, der nach der Verzögerung die Reset-Funktion ausführt
-    #             threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
-
-
             def delayed_category_reset_dynamic(displayed_games, seen_processes, current_seen, game_stopped_snap, previous_game_folder_snap, prev_game_data_snap):
                 global delay_general, Playnite_Game_Stopped, game_stopped, game_folder
 
@@ -4220,14 +4312,13 @@ def main_logic():
                     game_data = prev_game_data_snap
                     reset = False
                     current_game = game_folder
-                    #stopped_game = game_stopped
                     
                     if current_game == stopped_game:
                         reset = False
                     
                     if current_game != None and current_game != stopped_game:
                         prev_game_set = False
-                        reset = False # Neues game geöffnet, kein Reset sondern direkt neue Kategorie
+                        reset = False 
                     
                     if current_game == None:
                         reset = True
@@ -4254,7 +4345,7 @@ def main_logic():
                                     category_name = game_data["Twitch Category Name"]
                                     kick_category_name = game_data.get("Kick Category Name", "Just Chatting")
                                     game_folder = prev_game
-                                    previous_game_folder = None  # ← Restore erfolgreich
+                                    previous_game_folder = None 
                                     prev_game_set = False
                                 else:
                                     category_name = "Just Chatting"
@@ -4316,13 +4407,13 @@ def main_logic():
                     game_data = prev_game_data_snap
                     reset = False
                     current_game = game_folder
-                    #stopped_game = game_stopped
+
                     
                     if current_game == stopped_game:
                         reset = False
                     
                     if current_game != None and current_game != stopped_game:
-                        reset = False # Neues game geöffnet, kein Reset sondern direkt neue Kategorie
+                        reset = False
                     
                     if current_game == None:
                         reset = True
@@ -4340,11 +4431,11 @@ def main_logic():
                             failed = False
 
                             if prev_game is not None and prev_game in displayed_games:
-                                if game_data:  # ← direkt verwenden
+                                if game_data: 
                                     category_name = game_data["Twitch Category Name"]
                                     kick_category_name = game_data.get("Kick Category Name", "Just Chatting")
                                     game_folder = prev_game
-                                    previous_game_folder = None  # ← Restore erfolgreich
+                                    previous_game_folder = None 
                                     prev_game_set = False
                                 else:
                                     category_name = "Just Chatting"
@@ -4385,17 +4476,6 @@ def main_logic():
 
                 delay_seconds = delay_ms / 1000.0
                 threading.Thread(target=lambda: (time.sleep(delay_seconds), reset())).start()
-            
-            # def reset_displayed_games(closed_game):
-            #     global category_set_already, Playnite_Game_Stopped, game_stopped, game_folder, previous_game_folder, prev_game_set
-            #     stale_ids = [uid for uid, g in process_to_game.items() if g == closed_game]
-            #     for uid in stale_ids:
-            #         process_to_game.pop(uid, None)
-            #     previous_game_folder = None
-            #     prev_game_set = False                                           
-            #     displayed_games.remove(closed_game)
-            #     #category_set_already = None
-    
             
             if Playnite_Game_Stopped:
                 
