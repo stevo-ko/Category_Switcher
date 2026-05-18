@@ -1,3 +1,19 @@
+## :small_blue_diamond: **v2.0.14-Sv1.0.2 (DE)**
+
+### 🚀 Neue Features
+- 🎮 Wenn keine Kategorie gefunden wird, kann nun eine Standard-Kategorie gesetzt werden. Diese kann im Moment nur in der config.json eingestellt werden. Standart ist nicht aktiviert.
+
+### 🛠️ Fixes
+- 🔧 Fehler im toasted-Modul behoben der verhinderte das die matchfixes geladen werden wenn Windows-Benachrichtigungen deaktiviert waren
+
+## :small_blue_diamond: **v2.0.14-Sv1.0.2 (EN)**
+
+### 🚀 New Features
+- 🎮 If no category is found, a default category can now be set. This can only be set in the config.json at the moment. Default is not enabled.
+
+### 🛠️ Fixes
+- 🔧 Fixed an error in the toasted module that prevented the matchfixes from being loaded when Windows notifications were disabled.
+
 ## :small_blue_diamond: **v2.0.13-Sv1.0.2 (DE)**
 
 ### 🚀 Neue Features
