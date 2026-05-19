@@ -1,3 +1,13 @@
+## :small_blue_diamond: **v2.0.15-Sv1.0.2 (DE)**
+
+### 🛠️ Fixes
+- 🔧 Fehler window_title behoben.
+
+## :small_blue_diamond: **v2.0.15-Sv1.0.2 (EN)**
+
+### 🛠️ Fixes
+- 🔧 Fixed window_title error.
+
 ## :small_blue_diamond: **v2.0.14-Sv1.0.2 (DE)**
 
 ### 🚀 Neue Features
