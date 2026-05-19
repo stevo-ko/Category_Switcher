@@ -3899,6 +3899,7 @@ def main_logic():
                                     if not kick_categories:
                                         
                                         if not alternatives_tried_kick:
+                                            window_title = get_window_title_by_exe(pid) 
                                             kick_categories_window_title = search_kick_category(kick_token, window_title)                          
                                             if not kick_categories_window_title:
                                                 if wiki_name != window_title:
