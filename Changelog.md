@@ -1,7 +1,7 @@
 ## :small_blue_diamond: **v2.0.15-Sv1.0.2 (DE)**
 
 ### 🛠️ Fixes
-- 🔧 Fehler window_title behoben.
+- 🔧 Fehler window_title behoben. 
 
 ## :small_blue_diamond: **v2.0.15-Sv1.0.2 (EN)**
 
