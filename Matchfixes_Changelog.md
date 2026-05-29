@@ -1,4 +1,12 @@
 # 🧩 Match Liste — Matchfixes Changelog
+## v0.02 (DE)
+
+- 🚫 EpicOnlineServices von der Prozess-Erkennung ausgeschlossen
+
+## v0.02 (EN)
+
+- 🚫 EpicOnlineServices excluded from process detection
+
 
 ## v0.01 (DE)
 - 📝 `Digimon World 3` Namens-Mapping hinzugefügt
