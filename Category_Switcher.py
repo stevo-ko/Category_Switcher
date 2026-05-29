@@ -3532,12 +3532,19 @@ def main_logic():
 
                                        
                     if (("playnite.desktopapp" in exe_lower or "playnite.fullscreenapp" in exe_lower ) and exe_lower.endswith(".exe")):
-                        playnite_running = True
+                        
                         if playnite_enabled:
+                            playnite_running = True
                             if not watcher_started:
                                 folder_path = os.path.dirname(exe_path)
                                 filepath = os.path.join(folder_path, "RunningGame.json")                        
-                                
+                                # Prüfen ob Datei existiert
+                                if not os.path.exists(filepath):
+                                    # Fallback auf %appdata%\playnite
+                                    folder_path = os.path.join(os.getenv("APPDATA"), "playnite")
+                                    filepath = os.path.join(folder_path, "RunningGame.json")
+
+                               #print(filepath)                        
                                 start_watcher()
                                 watcher_started = True
                                 game_started_event.clear()
