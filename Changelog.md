@@ -1,3 +1,13 @@
+## :small_blue_diamond: **v2.0.16-Sv1.0.2 (DE)**
+
+### 🛠️ Fixes
+- 🔧 Playnite Game erkennung wenn Playnite installiert ist anstatt portable. 
+
+## :small_blue_diamond: **v2.0.16-Sv1.0.2 (EN)**
+
+### 🛠️ Fixes
+- 🔧 Playnite Game detection when Playnite is installed instead of portable.
+
 ## :small_blue_diamond: **v2.0.15-Sv1.0.2 (DE)**
 
 ### 🛠️ Fixes
