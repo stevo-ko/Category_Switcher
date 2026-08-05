@@ -152,6 +152,7 @@ default_config = {
         "kick_enabled": False,
         "playnite_enabled": False,
         "matchfix_update_toast_notification": True,
+        "backend_api": True,
     },
     "default_category": {
         "enabled": False,
@@ -170,7 +171,7 @@ else:
 
 settingspath = programm_ordner + "\\"
 config_path = os.path.join(programm_ordner, "config.json")
-
+version_path = os.path.join(programm_ordner, "Version.json")
 
 # Funktion zum Speichern der Standardkonfiguration
 # Function to create default config
@@ -224,60 +225,54 @@ def remove_from_config():
         with open("config.json", "w", encoding="utf-8") as f:
             json.dump(data, f, indent=4, ensure_ascii=False, sort_keys=False)
 
-def restore_critical_files():
+def restore_critical_files(files_to_restore):
     backup_folder = os.path.join(programm_ordner, "backups")
-    critical_files = ["config.json", "game_data.json", "Version.json"]
-    restored = False
     if not os.path.isdir(backup_folder):
         return False
 
-    for file in critical_files:
-        # Alle Backups dieses Typs finden
-        
+    restored = False
+    for file in files_to_restore:
         backups = sorted(
             [f for f in os.listdir(backup_folder) if f.startswith(file + "_") and f.endswith(".bak")],
             key=lambda x: os.path.getmtime(os.path.join(backup_folder, x)),
-            reverse=True  # neueste zuerst
+            reverse=True
         )
 
         if not backups:
-            #print(f"Kein Backup gefunden für: {file}")
             continue
 
-        # Neueste Datei auswählen
         latest_backup = os.path.join(backup_folder, backups[0])
 
-        # Validität prüfen
         try:
             with open(latest_backup, "r", encoding="utf-8") as f:
                 json.load(f)
         except json.JSONDecodeError:
-            #print(f"Ungültiges Backup (kein valides JSON): {latest_backup}")
             continue
 
-        # Wiederherstellen
         destination_file = os.path.join(programm_ordner, file)
         shutil.copy2(latest_backup, destination_file)
-        #print(f"Wiederhergestellt: {file} ← {latest_backup}")
         restored = True
     return restored
 
 
 def check_file_validity():
     critical_files = ["config.json", "game_data.json", "Version.json"]
+    invalid = []
     for file in critical_files:
         file_path = os.path.join(programm_ordner, file)
         if not os.path.exists(file_path):
-            return False
+            invalid.append(file)
+            continue
         try:
             with open(file_path, "r", encoding="utf-8") as f:
                 json.load(f)
         except json.JSONDecodeError:
-            return False
-    return True
+            invalid.append(file)
+    return invalid  # leere Liste = alles ok
 
-if not check_file_validity():
-    restore_critical_files()
+invalid_files = check_file_validity()
+if invalid_files:
+    restore_critical_files(invalid_files)
 
 
 update_from_version_below_2 = False
@@ -1482,10 +1477,23 @@ def _load_rules_with_toast(toast_obj=None):
         secured   = add_hmac(encrypted, key)
         with open(local_path, "wb") as f:
             f.write(secured)
-
+            
+    def parse_version(v: str) -> float:
+        try:   return float(v)
+        except: return 0.0
+        
     def merge(local, online):
         if local is None:
             return online, True
+        
+        local_v  = parse_version(local.get("version",  "0.00"))
+        online_v = parse_version(online.get("version", "0.00"))
+
+        if local_v > online_v:
+            # Lokal neuer → unverändert behalten
+            _vlog(f"Lokale Version ({local_v}) > Online ({online_v}) → behalte lokal")
+            return local, False
+        
         merged  = {k: online[k] for k in online}
         changed = merged != local
         return merged, changed
@@ -1664,7 +1672,7 @@ def _load_rules_with_toast(toast_obj=None):
     return None, False, fail_toast, False
 
 async def _run_update_notification():
-    global _active_toast, rules, _toast_build_params
+    global _active_toast, rules, _toast_build_params, matchfix_version
 
     loop = asyncio.get_event_loop()
     loop.set_exception_handler(
@@ -1682,6 +1690,7 @@ async def _run_update_notification():
             None, _load_rules_with_toast, None
         )
         rules = rules_result
+        matchfix_version = rules_result.get("version") if rules_result else None
         _vlog(f"Rules geladen: {rules_result is not None}")
         _notification_ready.set()
         return rules_result
@@ -1735,6 +1744,7 @@ async def _run_update_notification():
         rules_result, was_changed, result_toast, first_download = None, False, None, False
 
     rules = rules_result
+    matchfix_version = rules_result.get("version") if rules_result else None
 
     if matchfix_update_toast_notification:
         await asyncio.sleep(1.0)
@@ -1752,7 +1762,7 @@ async def _run_update_notification():
                 def _on_toast_result(result: ToastResult):
                     _dismissed.set()
                     if result.arguments == "changelog":
-                        QTimer.singleShot(0, _show_changelog)
+                        _show_changelog()
 
                 result_toast.on_result(_on_toast_result)
                 show_result = asyncio.create_task(result_toast.show())
@@ -2109,34 +2119,6 @@ _last_result = True
 ##filepath = r"E:\Playnite portable\RunningGame.json"
 
 filepath = None
-# ----------------------------
-# Watchdog Handler
-# ----------------------------
-# class JsonHandler(FileSystemEventHandler):
-#     def on_modified(self, event):
-#         global latest_game_event, Playnite_Game_Stopped
-
-#         # Nur reagieren, wenn genau die RunningGame.json geändert wurde
-#         if os.path.normcase(event.src_path) == os.path.normcase(filepath):
-#             try:
-#                 with io.open(filepath, 'r', encoding='utf-8') as f:
-#                     data = json.load(f)
-#                 latest_game_event = data
-
-#                 # Wenn Spiel gestartet wurde → Event setzen
-#                 if data.get("Event") == "GameStarted":
-#                     game_started_event.set()
-
-#                 if data.get("Event") == "GameStopped":
-#                     game_started_event.clear()
-                    
-#                     Playnite_Game_Stopped = True
-
-#             except json.JSONDecodeError:
-#                 # Datei wird gerade von Playnite beschrieben → ignorieren
-#                 pass
-#             except Exception as e:
-#                 print(f"Fehler beim Lesen der JSON: {e}")
 
 class JsonHandler(FileSystemEventHandler):
     last_run = 0
@@ -2234,23 +2216,66 @@ known_exe_names = ["blender.exe","UnrealEditor.exe","Unity Hub.exe","Code.exe","
                     "ollydbg2_zh_cn64.exe","ollydbg2_zh_tw.exe","ollydbg2_zh_tw64.exe","ollydbg2_de.exe",   
                     "cutter.exe","binaryninja.exe","x64dbg.exe","x32dbg.exe","ollydbg.exe","windbg.exe","cdb.exe",
                     "ntsd.exe","procexp.exe","procmon.exe","processhacker.exe","cl.exe","link.exe","msbuild.exe",
-                    "nmake.exe","gcc.exe","g++.exe","cmake.exe","ninja.exe","python.exe","pythonw.exe","node.exe",
+                    "nmake.exe","gcc.exe","g++.exe","cmake.exe","ninja.exe","node.exe",
                     "npm.exe","dotnet.exe","java.exe","javac.exe","psql.exe","mysql.exe","dbeaver.exe","git.exe",
                     "tortoisegitproc.exe","vmware.exe","virtualbox.exe","qemu-system-x86_64.exe","adb.exe","docker.exe",
                     "dottrace.exe","dotmemory.exe","perfview.exe","choco.exe","scoop.exe","winget.exe","postman.exe",
                     "curl.exe","wget.exe","perfwatson2.exe","ServiceHub.IntellicodeModelService.exe"
                     ]
+known_art_exe_names = [
+    # Adobe Creative Cloud
+    "Photoshop.exe", "Illustrator.exe", "InDesign.exe", "Adobe Premiere Pro.exe",
+    "AfterFX.exe", "Adobe Animate.exe", "Adobe Fresco.exe", "Adobe Substance 3D Painter.exe",
+    "Adobe Substance 3D Designer.exe", "Adobe Substance 3D Sampler.exe", "Adobe Substance 3D Stager.exe",
+    "Lightroom.exe", "AfterEffects.exe",
+
+    # 2D Zeichenprogramme / Illustration
+    "CLIPStudioPaint.exe", "krita.exe", "gimp-2.10.exe", "gimp.exe",
+    "Painter.exe", "sai.exe", "sai2.exe", "MediBangPaintPro.exe",
+    "PaintStorm.exe", "Rebelle 6.exe", "Rebelle 5.exe", "ArtRage 6.exe", "ArtRage.exe",
+    "inkscape.exe", "CorelDrw.exe", "Affinity Photo.exe", "Affinity Designer.exe",
+    "Affinity Publisher.exe", "Photo.exe", "Designer.exe", "SketchBook.exe",
+
+    # Animation
+    "HarmonyPremium.exe", "Harmony Premium.exe", "OpenToonz.exe",
+    "TVPaint Animation 11 64bits.exe", "TVPaint Animation 12 64bits.exe",
+    "Aseprite.exe", "aseprite.exe",
+
+    # 3D / Sculpting / Modeling
+    "ZBrush.exe", "maya.exe", "3dsmax.exe", "Cinema 4D.exe", "houdini.exe",
+    "3DCoat.exe", "3DCoatTextura.exe", "SubstancePainter.exe", "SubstanceDesigner.exe",
+    "MarvelousDesigner.exe", "CharacterCreator.exe", "iClone.exe",
+    "ZBrush64.exe", "Wrap4Blender.exe",
+
+    # Sonstige Kreativ-Tools
+    "procreate.exe",
+]
    
 last_modified = None  
 save_games_to_file = True
 unique_id = None
 seen_processes = None
 printed_closed = False
+report_sended = False
+window_title = None
+wiki_title = None
+BACKEND_URL = "https://backend.stevo-ko.de/"
+backend_token = "7a03342d3238211cda409bd5988bbf95eef071cede82cbeb9f09ccbdc284c933"
+username = None
+switcher_version = None
+matchfix_version = None
+operating_system = None
+windowsapps_map = {}       # {exe_name.lower(): display_name}
+
+
+
 
 def main_logic():
     
     global token, CLIENT_ID, token_valid, category_set_already, language, previous_saved_games, previous_game_folder, prev_game_set, first_save, game_folder, alternatives_tried, alternatives_tried_kick, config_path, last_modified, message, with_console, known_exe_names, settingspath, update_from_version_below_2, printed_closed, found_folder
-    
+
+    ##art exe names
+    global known_art_exe_names
     ##gui
     global console
     
@@ -2271,6 +2296,13 @@ def main_logic():
     
     ## Default categorys when none is found
     global default_category, default_twitch_category, default_kick_category
+    
+    ## Variables for report system
+    global report_sended, window_title, wiki_title, BACKEND_URL, backend_token, username, switcher_version, matchfix_version, avatar_url, operating_system, version_path, backend_api
+    
+    ## Dict for windowsapps
+    global windowsapps_map
+    
     
 ##    print(config_path)
 ##    print(last_modified)
@@ -2296,7 +2328,7 @@ def main_logic():
     CLIENT_ID = get_key_value(config["twitch"], "CLIENT_ID")
     token = get_key_value(config["twitch"], "OAuth_token")
     kick_token = get_key_value(config["kick"], "OAuth_token")
-    
+    #backend_token = get_key_value(config["backend"], "OAuth_token")
     streamerbot_url= config["streamerbot"]["url"]
     streamerbot_port = config["streamerbot"]["port"]
     streamerbot_get_actions_name = config['streamerbot']['Get Actions ID'][0]['Action_Name']
@@ -2327,7 +2359,7 @@ def main_logic():
     kick_enabled = bool(config["options"]["kick_enabled"])
     playnite_enabled = bool(config["options"]["playnite_enabled"])
     matchfix_update_toast_notification = bool(config["options"]["matchfix_update_toast_notification"])
-    
+    backend_api = bool(config["options"]["backend_api"])
     
     # Kategorie wenn keine gefunden wird
     # Category when None is found
@@ -2352,6 +2384,7 @@ def main_logic():
         global default_category
         global default_twitch_category
         global default_kick_category
+        global backend_api
         nonlocal streamerbot_url
         nonlocal streamerbot_port
         nonlocal streamerbot_get_actions_name
@@ -2389,7 +2422,7 @@ def main_logic():
         CLIENT_ID = get_key_value(config["twitch"], "CLIENT_ID")
         token = get_key_value(config["twitch"], "OAuth_token")
         kick_token = get_key_value(config["kick"], "OAuth_token")
-        
+        #backend_token = get_key_value(config["backend"], "OAuth_token")
         streamerbot_url= config["streamerbot"]["url"]
         streamerbot_port = config["streamerbot"]["port"]
         streamerbot_get_actions_name = config['streamerbot']['Get Actions ID'][0]['Action_Name']
@@ -2419,6 +2452,7 @@ def main_logic():
         playnite_enabled = bool(config["options"]["playnite_enabled"])
         setting_language = config["options"]["language"]
         matchfix_update_toast_notification = bool(config["options"]["matchfix_update_toast_notification"])
+        backend_api = bool(config["options"]["backend_api"])
 
         default_category = config["default_category"]["enabled"]
         default_twitch_category = config["default_category"]["twitch_category"]
@@ -2477,7 +2511,78 @@ def main_logic():
             print(censor_mode)
             logging.info("Censor Mode is activated")
     censoring()
+    
+    def get_windowsapps_map() -> dict:
+        """
+        Gibt ein Dict {exe_name.lower(): display_name} aller installierten
+        Windows Store Apps zurück.
+        """
+        APPX_ROOT = r"SOFTWARE\Classes\Local Settings\Software\Microsoft\Windows\CurrentVersion\AppModel\Repository\Packages"
+        
+        try:
+            result = subprocess.run(
+                ['powershell', '-NoProfile', '-Command',
+                'Get-AppxPackage | ForEach-Object { $_.PackageFullName }'],
+                capture_output=True, text=True, timeout=15,
+                creationflags=subprocess.CREATE_NO_WINDOW
+            )
+            valid_full_names = set()
+            if result.returncode == 0 and result.stdout.strip():
+                valid_full_names = {line.strip() for line in result.stdout.splitlines() if line.strip()}
+        except Exception:
+            valid_full_names = set()
 
+        windowsapps_mapping = {}
+
+        try:
+            import winreg
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, APPX_ROOT) as root:
+                i = 0
+                while True:
+                    try:
+                        pkg_key = winreg.EnumKey(root, i)
+                        i += 1
+                    except OSError:
+                        break
+
+                    if valid_full_names and pkg_key not in valid_full_names:
+                        continue
+
+                    try:
+                        with winreg.OpenKey(root, pkg_key) as pkg:
+                            try:
+                                display_name = winreg.QueryValueEx(pkg, "DisplayName")[0]
+                            except OSError:
+                                display_name = ""
+
+                            try:
+                                install_loc = winreg.QueryValueEx(pkg, "PackageRootFolder")[0]
+                            except OSError:
+                                install_loc = ""
+
+                            if not display_name or display_name.startswith("@{") or display_name.startswith("ms-resource"):
+                                display_name = pkg_key.split("_")[0]
+
+                            if install_loc and "\\SystemApps\\" in install_loc:
+                                continue
+
+                            if not install_loc or not os.path.isdir(install_loc):
+                                continue
+
+                            try:
+                                for f in os.listdir(install_loc):
+                                    if f.lower().endswith('.exe'):
+                                        windowsapps_mapping[f.lower()] = display_name
+                            except (PermissionError, FileNotFoundError):
+                                pass
+
+                    except OSError:
+                        pass
+
+        except OSError as e:
+            print(f"⚠️  Registry-Fehler: {e}")
+
+        return windowsapps_mapping
         
     def remove_intergrade_from_folder(game_folder):
         game_folder = re.sub(r'\s*Intergrade$', '', game_folder)
@@ -2515,6 +2620,9 @@ def main_logic():
             or "microsoft visual studio" in exe_path_lower
         )
 
+    def is_known_art_program_path(exe_path):
+        exe_path_lower = exe_path.lower()
+        return any(exe.lower() in exe_path_lower for exe in known_art_exe_names)
     
     # Überprüfen, ob obs64.exe noch läuft
     # check if obs64.exe is running
@@ -2873,6 +2981,178 @@ def main_logic():
             if language == 0:
                 print(f"❌ Error while saving of the Kick Tokens or CLIENT_ID: {e}")
 
+    #Backend Functions
+
+    def get_switcher_version():
+        try:
+            with open(version_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            return data.get("ProgramVersion", "unknown")
+        except Exception as e:
+            print(f"❌ Failed to read version.json: {e}")
+            return "Unknown"
+
+    def get_twitch_avatar(username, client_id, token):
+        url = "https://api.twitch.tv/helix/users"
+
+        headers = {
+            "Client-ID": client_id,
+            "Authorization": f"Bearer {token}"
+        }
+
+        params = {
+            "login": username
+        }
+
+        r = requests.get(url, headers=headers, params=params)
+        data = r.json()
+
+        if "data" in data and len(data["data"]) > 0:
+            return data["data"][0]["profile_image_url"]
+
+        return None
+
+    def get_streamerbot_path():
+        for proc in psutil.process_iter(['pid', 'name', 'exe']):
+            try:
+                name = (proc.info['name'] or '').lower()
+                if 'streamer' in name and 'bot' in name:
+                    return proc.info['exe']
+            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                continue
+        return None
+
+
+    def load_json(path):
+        with open(path, 'r', encoding='utf-8-sig') as f:
+            return json.load(f)
+
+
+    def get_broadcaster():
+        path = get_streamerbot_path()
+        if not path:
+            return None
+
+        user_dat = os.path.join(os.path.dirname(path), 'data', 'users.dat')
+
+        try:
+            data = load_json(user_dat)
+        except Exception as e:
+            print("JSON ERROR:", e)
+            return None
+
+        users = data.get('users', {})
+
+        # Broadcaster (role 4), Twitch bevorzugt
+        admin = next(
+            (u for u in users.values()
+            if u.get('type') == 'twitch' and int(u.get('role', 0)) == 4),
+            None
+        )
+
+        # Fallback Kick
+        if not admin:
+            admin = next(
+                (u for u in users.values()
+                if u.get('type') == 'kick' and int(u.get('role', 0)) == 4),
+                None
+            )
+
+        if not admin:
+            return None
+
+        
+        return admin.get('display') or admin.get('name')
+    
+    def get_windows_edition():
+        try:
+            import winreg
+
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r"SOFTWARE\Microsoft\Windows NT\CurrentVersion"
+            )
+
+            product_name = winreg.QueryValueEx(key, "ProductName")[0]
+            display_version = winreg.QueryValueEx(key, "DisplayVersion")[0]
+            current_build = int(winreg.QueryValueEx(key, "CurrentBuild")[0])
+
+            # Windows 11 starts at build 22000+
+            if current_build >= 22000:
+                os_name = product_name.replace("Windows 10", "Windows 11")
+            else:
+                os_name = product_name
+
+            return f"{os_name} {display_version} (Build {current_build})"
+
+        except Exception:
+            return "Unknown OS"
+        
+    operating_system = get_windows_edition()   
+    windowsapps_map = get_windowsapps_map()
+    #print (operating_system)
+    username = get_broadcaster()
+    avatar_url = get_twitch_avatar(username, CLIENT_ID, token)
+    switcher_version = get_switcher_version()
+
+    
+    def send_user():
+        if not DEBUG_MODE:
+            if username:
+                # User registrieren
+                requests.post(
+                    f"{BACKEND_URL}/user",
+                    json={"username": username, "avatar_url": avatar_url},
+                    headers={"X-Api-Key": backend_token},
+                    timeout=5
+                )
+                
+                # Game Data hochladen
+                if os.path.exists("game_data.json"):
+                                 
+                    with open("game_data.json", "r", encoding="utf-8") as f:
+                        game_data = json.load(f)
+                    
+                    #print (game_data)
+                    requests.post(
+                        f"{BACKEND_URL}/user/{username}/game-data",
+                        json=game_data,
+                        headers={"X-Api-Key": backend_token},
+                        timeout=10
+                    )
+    if backend_api:
+        send_user()
+
+
+    def send_report():
+        if not DEBUG_MODE:
+            try:
+                res = requests.post(
+                    f"{BACKEND_URL}/report",
+                    json={
+                        "error": "Category Not Found",
+                        "stack": "",
+                        "username": username,
+                        "version": switcher_version,
+                        "matchfix_version": matchfix_version,
+                        "os": operating_system,
+                        "game_folder": game_folder,
+                        "exe_path": exe_path,
+                        "window_title": window_title,
+                        "wiki_title": wiki_title
+                    },
+                    headers={"X-Api-Key": backend_token},
+                    timeout=5
+                )
+
+                return res
+
+            except requests.RequestException as e:
+                print("REQUEST FAILED:", e)
+                return None
+
+
+
     # Funktion, um eine Twitch-Kategorie per Name zu suchen
     # Function to search Twitch-category with the Name
     def search_twitch_category(tokensearch, search_query, _retry=False):
@@ -3059,18 +3339,70 @@ def main_logic():
 
 
         return new_width, new_height
+
+
+
     
     # Funktion zum Abrufen des größten Box-Art-Bildes
     # Function to get the biggest Box Art
+    # def get_largest_box_art_url(box_art_url, category_id, width, height):
+    #     """Passt die URL an eine gültige 3:4-Größe an."""
+    #     new_width, new_height = get_next_greater_3_4_size(width, height)
+    #     new_size = f"{new_width}x{new_height}"
+
+    #     # Ersetze nur die Kategorie-ID, behalte aber _IGDB
+    #     modified_url = re.sub(r"(\w+)(_IGDB)?(-\d+x\d+)", rf"{category_id}_IGDB\3", box_art_url, 1)
+
+    #     return re.sub(r"\d+x\d+", new_size, modified_url)
+    
+
+
+    TWITCH_404_BASE = "https://static-cdn.jtvnw.net/ttv-static/404_boxart"
+
+
+    def is_valid_twitch_image(url):
+        try:
+            r = requests.get(url, stream=True, timeout=2)
+
+            final_url = r.url
+
+            if r.status_code != 200:
+                return False
+
+            if "404_boxart" in final_url:
+                return False
+
+            return True
+
+        except:
+            return False
+
+
     def get_largest_box_art_url(box_art_url, category_id, width, height):
-        """Passt die URL an eine gültige 3:4-Größe an."""
-        new_width, new_height = get_next_greater_3_4_size(width, height)
-        new_size = f"{new_width}x{new_height}"
+        new_w, new_h = get_next_greater_3_4_size(width, height)
+        size = f"{new_w}x{new_h}"
 
-        # Ersetze nur die Kategorie-ID, behalte aber _IGDB
-        modified_url = re.sub(r"(\w+)(_IGDB)?(-\d+x\d+)", rf"{category_id}_IGDB\3", box_art_url, 1)
+        def make_url(use_igdb: bool):
+            url = re.sub(
+                r"(\w+)(_IGDB)?(-\d+x\d+)",
+                rf"{category_id}{'_IGDB' if use_igdb else ''}\3",
+                box_art_url,
+                count=1
+            )
+            return re.sub(r"\d+x\d+", size, url)
 
-        return re.sub(r"\d+x\d+", new_size, modified_url)
+        # 1. IGDB Versuch
+        url = make_url(True)
+        if is_valid_twitch_image(url):
+            return url
+
+        # 2. fallback ohne IGDB
+        url = make_url(False)
+        if is_valid_twitch_image(url):
+            return url
+
+        # 3. dynamischer 404 (WICHTIGER FIX)
+        return f"{TWITCH_404_BASE}-{size}.jpg"
 
     def get_valid_root_folder(exe_path, allowed_paths, excluded_folders):
         parts = exe_path.split("\\")
@@ -3215,6 +3547,21 @@ def main_logic():
         
         return title.strip() or None
 
+    def get_all_window_pids():
+        pids_with_window = set()
+
+        def callback(hwnd, _):
+            if ctypes.windll.user32.IsWindowVisible(hwnd):
+                length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+                if length > 0:
+                    proc_id = wintypes.DWORD()
+                    ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(proc_id))
+                    pids_with_window.add(proc_id.value)
+            return True
+
+        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+        ctypes.windll.user32.EnumWindows(WNDENUMPROC(callback), 0)
+        return pids_with_window
 
 
     # Set für bereits ausgegebene Prozesse (kombiniert aus PID und exe-Pfad)
@@ -3433,7 +3780,7 @@ def main_logic():
         excluded_exe_exact = set(rules["excluded_exe_exact_in_code"])
         game_name_mappings = rules["game_name_mappings"]
         game_name_exact = rules["game_name_exact"]
-
+        
     else:
         if language == 1:
             print("⚠️ Matchfixes nicht verfügbar, die Kategorien können für manche Spiele nicht korrekt gefunden werden!")
@@ -3450,17 +3797,23 @@ def main_logic():
                 ##print("Die config.json wurde geändert, neu laden!")
                 last_modified = current_modified
                 load_config_live()
+  
+                #print(f"show_console = {show_console}")
+                #print(f"frozen = {getattr(sys, 'frozen', False)}")
+                #print(f"console = {console}")
                 if not show_console:
+                    #print("hide path")
                     if not getattr(sys, 'frozen', False):
-                    
+                       # print("frozen block")
                         hwnd = ctypes.windll.kernel32.GetConsoleWindow()
                         if hwnd:
                             ctypes.windll.user32.ShowWindow(hwnd, 0)
-                        if console is not None:
-                            _gui_signals.hide_console_window.emit()
+                    if console is not None:
+                        #print("emitting hide signal")
+                        _gui_signals.hide_console_window.emit()
                 else:
-                    
-                    _gui_signals.show_console_window.emit()     
+                    #print("emitting show signal")
+                    _gui_signals.show_console_window.emit()
                 
                 # if not show_console:
                 #     if not getattr(sys, 'frozen', False):  
@@ -3474,7 +3827,8 @@ def main_logic():
                 if censor_mode:
                     censoring()# Hier rufst du deine Funktion auf        
             current_seen = set()
-            
+            window_pids_this_cycle = get_all_window_pids()
+            root_folder = None
             for proc in psutil.process_iter(['pid', 'name', 'exe']):
                 try:
                     
@@ -3484,7 +3838,7 @@ def main_logic():
                     name = proc.info['name']
 
 
-                    
+                    is_windowsapps = not exe_path or 'WindowsApps' in (exe_path or '')
                     # Sicherstellen, dass der Prozess ein valides exe_path hat und in allowed_paths liegt
                     # Make sure process has an valid exe_path and is in allowed_paths
                     if not exe_path or name in excluded_names:
@@ -3499,7 +3853,7 @@ def main_logic():
                     skip_path_check = name_lower in (
                         'playnite.desktopapp.exe',
                         'playnite.fullscreenapp.exe'
-                    )
+                    ) or is_windowsapps or is_known_art_program_path(exe_path.lower())
                     
 
                     if not skip_path_check:
@@ -3529,7 +3883,11 @@ def main_logic():
                         continue
                         if is_playnite_running() or game_set:
                             continue
+                        
+                    if "minecraft" in exe_lower and exe_lower.endswith(".exe"):
+                        root_folder = "Minecraft"
 
+                        
                                        
                     if (("playnite.desktopapp" in exe_lower or "playnite.fullscreenapp" in exe_lower ) and exe_lower.endswith(".exe")):
                         
@@ -3627,6 +3985,22 @@ def main_logic():
                             if watcher_started:
                                 watcher_started = False
                                 stop_watcher()             
+
+                    if is_windowsapps and not game_set:
+                        display_name = windowsapps_map.get(exe_lower)
+                        if not display_name:
+                            continue  # unbekannte WindowsApp, überspringen
+                        
+                        if pid not in window_pids_this_cycle:   
+                            continue # Windowsapp ohne Fenster überspringen
+                        
+                        new_folder = display_name
+                        if not prev_game_set:
+                            previous_game_folder = new_folder
+                            prev_game_set = True
+                        game_folder = new_folder
+                        kick_game_folder = game_folder
+                        found_folder = game_folder
                     
                     if is_ue_or_known_exe_path(exe_path.lower()):
                         if game_folder is not None and game_folder != "Software and game development":
@@ -3646,34 +4020,58 @@ def main_logic():
                             current_seen.add(unique_id)
                             process_to_game.setdefault(unique_id, game_folder)
                             continue  # ← rest des Loops überspringen
+                        
+                    elif is_known_art_program_path(exe_path.lower()):
+                        if pid not in window_pids_this_cycle: 
+                            continue  
+                        
+                        if game_folder is not None and game_folder != "Art":
+                            if not prev_game_set:
+                                previous_game_folder = game_folder
+                                prev_game_set = True
+
+                        game_folder = "Art"
+                        kick_game_folder = "Art"
+                        if not prev_game_set:
+                            previous_game_folder = game_folder
+                            prev_game_set = True
+
+                        if game_folder in displayed_games:
+                            unique_id = (pid, exe_path)
+                            current_seen.add(unique_id)
+                            process_to_game.setdefault(unique_id, game_folder)
+                            continue
                 
                     else:    
                         # Gültigen Root-Ordner finden
                         # Find valid root folder
-                        
-                        root_folder = get_valid_root_folder(exe_path, allowed_paths, excluded_folders)
-                        
-        ##                if root_folder:
-        ##                    print(f"Root: {root_folder}")
-
                         if not root_folder:
-                            continue  # Falls kein gültiger Root-Ordner gefunden wurde, überspringe diesen Prozess
-                                    # If no valid root folder found skip that process
+                            if not is_windowsapps:
+                                root_folder = get_valid_root_folder(exe_path, allowed_paths, excluded_folders)
+                                
+                ##                if root_folder:
+                ##                    print(f"Root: {root_folder}")
 
-                        # Spielname extrahieren (Ordner der .exe)
-                        # Extrac gamename (Folder of .exe)
-                        if not game_set:
-                            #game_folder = os.path.basename(root_folder)
-                            new_folder = os.path.basename(root_folder)
-                            #if game_folder is not None and game_folder != new_folder:
-                            if not prev_game_set:  # ← nur setzen wenn noch nicht gesetzt
-                                previous_game_folder = new_folder
-                                prev_game_set = True
+                                if not root_folder:
+                                    continue  # Falls kein gültiger Root-Ordner gefunden wurde, überspringe diesen Prozess
+                                            # If no valid root folder found skip that process
 
-                            game_folder = new_folder
-                            kick_game_folder = game_folder
-                            found_folder = game_folder
-                            
+                                # Spielname extrahieren (Ordner der .exe)
+                                # Extrac gamename (Folder of .exe)
+                                if not game_set:
+                                    #game_folder = os.path.basename(root_folder)
+                                    new_folder = os.path.basename(root_folder)
+                                    #if game_folder is not None and game_folder != new_folder:
+                                    if not prev_game_set:  # ← nur setzen wenn noch nicht gesetzt
+                                        previous_game_folder = new_folder
+                                        prev_game_set = True
+
+                                    game_folder = new_folder
+                                    kick_game_folder = game_folder
+                                    found_folder = game_folder
+                    if not game_folder:
+                        game_folder = root_folder
+                        kick_game_folder = game_folder
 
     ##                print(f" Debug output game_folder: {game_folder}")
                     exe_lower = os.path.basename(exe_path).lower()
@@ -3840,6 +4238,7 @@ def main_logic():
                                 if not alternatives_tried:
                                     window_title = get_window_title_by_exe(pid) 
                                     categories_window_title = search_twitch_category(token, window_title) 
+                                    
                                     if not categories_window_title:
                                         
                                         wiki_name = search_wikipedia_game(game_folder)
@@ -3847,12 +4246,14 @@ def main_logic():
                                         if wiki_name != window_title:
                                                                                 
                                             categories = search_twitch_category(token, wiki_name)  
+                                            game_folder = kick_game_folder = wiki_name
                                             alternatives_tried = True
                                         else:
                                             alternatives_tried = True  
                                             
                                     else:
-                                        categories = categories_window_title                         
+                                        categories = categories_window_title
+                                        game_folder = kick_game_folder = window_title                         
                                                         
                             # Speicher die Spiel- und Twitch-Daten in einem Dictionary
                             # Save game and twitch data in a dictionary
@@ -4173,7 +4574,11 @@ def main_logic():
                                         if kick_enabled:
                                             send_message(game_folder, category_name, kick_category_name)
                                         else:                                    
-                                            send_message(game_folder, category_name)   
+                                            send_message(game_folder, category_name) 
+                            if not report_sended:
+                                if backend_api:    
+                                    send_report() 
+                                    report_sended = True
                         else:
                             
                             if not displayed_warning:
@@ -4769,6 +5174,7 @@ def start_gui():
 
     def _on_hide():
         global gui
+        print("hide signal received")
         console.hide()
         gui = False
 
