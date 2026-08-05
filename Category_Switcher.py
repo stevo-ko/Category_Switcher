@@ -3505,47 +3505,98 @@ def main_logic():
             print("No valid folder found.")  # Debug-Ausgabe
         return None
 
-
-
-    def get_window_title_by_exe(pid):
-        titles = []
+    def debug_window_check():
+        results = []
         
         def callback(hwnd, _):
             if ctypes.windll.user32.IsWindowVisible(hwnd):
                 length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+                proc_id = wintypes.DWORD()
+                ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(proc_id))
                 if length > 0:
-                    proc_id = wintypes.DWORD()
-                    ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(proc_id))
-                    if proc_id.value == pid:
-                        buff = ctypes.create_unicode_buffer(length + 1)
-                        ctypes.windll.user32.GetWindowTextW(hwnd, buff, length + 1)
-                        titles.append(buff.value)
+                    buff = ctypes.create_unicode_buffer(length + 1)
+                    ctypes.windll.user32.GetWindowTextW(hwnd, buff, length + 1)
+                    results.append((hwnd, proc_id.value, buff.value))
             return True
         
         WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
         ctypes.windll.user32.EnumWindows(WNDENUMPROC(callback), 0)
         
-        if not titles:
+        with open("all_windows_debug.txt", "w", encoding="utf-8") as f:
+            f.write(f"frozen={getattr(sys, 'frozen', False)}\n")
+            f.write(f"Eigene PID: {os.getpid()}\n")
+            f.write(f"Gefundene Fenster: {len(results)}\n\n")
+            for hwnd, pid, title in results:
+                f.write(f"HWND: {hwnd}, PID: {pid}, Titel: {title}\n")
+
+
+    def get_window_title_by_exe(pid, timeout=0, interval=0.5, check_children=True):
+            """
+            Ermittelt den Fenstertitel eines Prozesses.
+            Prüft bei check_children=True auch Kindprozesse, falls der Hauptprozess
+            selbst kein sichtbares Fenster hat (z.B. bei Launcher-Wrapper-exes).
+            Bei timeout > 0 wird bis zu 'timeout' Sekunden gepollt.
+            """
+            def _get_candidate_pids():
+                pids = [pid]
+                if check_children:
+                    try:
+                        proc = psutil.Process(pid)
+                        pids.extend(child.pid for child in proc.children(recursive=True))
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+                return pids
+
+            def _find_title():
+                candidate_pids = set(_get_candidate_pids())
+                titles = []
+                
+                def callback(hwnd, _):
+                    if ctypes.windll.user32.IsWindowVisible(hwnd):
+                        length = ctypes.windll.user32.GetWindowTextLengthW(hwnd)
+                        if length > 0:
+                            proc_id = wintypes.DWORD()
+                            ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(proc_id))
+                            if proc_id.value in candidate_pids:
+                                buff = ctypes.create_unicode_buffer(length + 1)
+                                ctypes.windll.user32.GetWindowTextW(hwnd, buff, length + 1)
+                                titles.append(buff.value)
+                    return True
+                
+                WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, wintypes.HWND, wintypes.LPARAM)
+                ctypes.windll.user32.EnumWindows(WNDENUMPROC(callback), 0)
+                
+                if not titles:
+                    return None
+                
+                title = titles[0]
+                title = re.sub(r'[™®©℠]', '', title)
+                title = re.sub(r'\s+v\d+[\.\d]*$', '', title, flags=re.IGNORECASE)
+                
+                suffixes_to_remove = [
+                    r'\s*-\s*Steam$',
+                    r'\s*-\s*Epic Games$',
+                    r'\s*-\s*GOG$',
+                    r'\s*\(\d+\)$',
+                    r'\s*\[.*?\]$',
+                    r'\s*\|.*$',
+                ]
+                for suffix in suffixes_to_remove:
+                    title = re.sub(suffix, '', title, flags=re.IGNORECASE)
+                
+                return title.strip() or None
+
+            if timeout <= 0:
+                return _find_title()
+
+            elapsed = 0.0
+            while elapsed < timeout:
+                title = _find_title()
+                if title:
+                    return title
+                time.sleep(interval)
+                elapsed += interval
             return None
-        
-        title = titles[0]
-        
-        # Bereinigung
-        title = re.sub(r'[™®©℠]', '', title)
-        title = re.sub(r'\s+v\d+[\.\d]*$', '', title, flags=re.IGNORECASE)
-        
-        suffixes_to_remove = [
-            r'\s*-\s*Steam$',
-            r'\s*-\s*Epic Games$',
-            r'\s*-\s*GOG$',
-            r'\s*\(\d+\)$',
-            r'\s*\[.*?\]$',
-            r'\s*\|.*$',
-        ]
-        for suffix in suffixes_to_remove:
-            title = re.sub(suffix, '', title, flags=re.IGNORECASE)
-        
-        return title.strip() or None
 
     def get_all_window_pids():
         pids_with_window = set()
@@ -4236,7 +4287,13 @@ def main_logic():
                             if not categories:
 
                                 if not alternatives_tried:
-                                    window_title = get_window_title_by_exe(pid) 
+                                    if language == 1:
+                                        print(f"\n✅ Versuche alternativen Weg für Kategorie findung")
+
+                                    if language == 0:
+                                        print(f"\n✅ Trying alternative way for category finding")
+                                    
+                                    window_title = get_window_title_by_exe(pid, timeout=30)
                                     categories_window_title = search_twitch_category(token, window_title) 
                                     
                                     if not categories_window_title:
@@ -4246,14 +4303,16 @@ def main_logic():
                                         if wiki_name != window_title:
                                                                                 
                                             categories = search_twitch_category(token, wiki_name)  
-                                            game_folder = kick_game_folder = wiki_name
                                             alternatives_tried = True
+                                            game_folder = wiki_name
                                         else:
                                             alternatives_tried = True  
                                             
                                     else:
                                         categories = categories_window_title
-                                        game_folder = kick_game_folder = window_title                         
+                                        game_folder = window_title
+                                        alternatives_tried = True
+                  
                                                         
                             # Speicher die Spiel- und Twitch-Daten in einem Dictionary
                             # Save game and twitch data in a dictionary
@@ -4313,10 +4372,13 @@ def main_logic():
                                                 if wiki_name != window_title:
                                                     kick_categories = search_kick_category(kick_token, wiki_name)
                                                     alternatives_tried_kick = True
+                                                    kick_game_folder = wiki_name
                                                 else:
                                                     alternatives_tried_kick = True
                                             else:
                                                 kick_categories = kick_categories_window_title
+                                                kick_game_folder = window_title
+                                                alternatives_tried_kick = True
 
                                     if kick_categories:
                                         
