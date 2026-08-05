@@ -1,3 +1,32 @@
+## :small_blue_diamond: **v2.0.17-Sv1.0.2 (DE)**
+
+### 🚀 Neue Features
+- 🔔 Backend API um schneller zu erhalten welche Spiele nicht gefunden wurden und mehr brauchbare Infos davon. Erlaubt es mir neue Matchfixes schneller und von überall zu pushen.
+- 🔔 Automatische Erstellung von Github Issues pro nicht gefundene Kategorie.
+
+### 🛠️ Fixes
+- 🔧 WindowsApps sollten nun auch erkannt werden. Vielleicht muss ich einige Ordner oder Exes ausschließen, aber ich werde das mit der Backend API automatisch erkennen.
+
+### 🛠️ Kategorie-Matching Fixes
+- 🔧 Fixed **Runescape: Dragonwilds**
+- 🔧 Fixed alternative Suche für die Kategorien
+- 🔧 Kunst Programme werden nun auch erkannt und in die Kunst-Kategorie gewechselt
+ 
+
+## :small_blue_diamond: **v2.0.17-Sv1.0.2 (EN)**
+
+### 🚀 New Features
+- 🔔 Backend API to get not found categories faster with the Infos i need to fix the games. Allows me to push new matchfixes faster and from everywhere.
+- 🔔 Auto creation of Github Issues per not found category.
+
+### 🛠️ Fixes
+- 🔧 WindowsApps should now be detected as well. Maybe there is need to exclude some folders or exes, but i will get that with the backend api automatically.
+
+### 🛠️ Category-Matching Fixes
+- 🔧 Fixed **Runescape: Dragonwilds**
+- 🔧 Fixed alternative search for the categories
+- 🔧 Art programs are now also detected and switched to the Art category
+
 ## :small_blue_diamond: **v2.0.16-Sv1.0.2 (DE)**
 
 ### 🛠️ Fixes
