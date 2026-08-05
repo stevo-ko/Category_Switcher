@@ -1,12 +1,4 @@
 # 🧩 Match Liste — Matchfixes Changelog
-## v0.03 (DE)
-
-- 🚫 Viele WindowsApps ausgeschlossen
-
-## v0.03 (EN)
-
-- 🚫 Many WindowsApps excluded
-
 ## v0.02 (DE)
 
 - 🚫 EpicOnlineServices von der Prozess-Erkennung ausgeschlossen
