@@ -1,4 +1,12 @@
 # 🧩 Match Liste — Matchfixes Changelog
+## v0.04 (DE)
+
+- 🚫 EOSBootStrapper ausgeschlossen
+
+## v0.04 (EN)
+
+- 🚫 EOSBootStrapper excluded
+
 ## v0.03 (DE)
 
 - 🚫 Viele WindowsApps ausgeschlossen
