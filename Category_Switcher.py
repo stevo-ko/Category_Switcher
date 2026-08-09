@@ -2260,7 +2260,7 @@ report_sended = False
 window_title = None
 wiki_title = None
 BACKEND_URL = "https://backend.stevo-ko.de/"
-backend_token = "7a03342d3238211cda409bd5988bbf95eef071cede82cbeb9f09ccbdc284c933"
+backend_token = "5c8d94a0a00749d71cf32a054792fff78253cec82790662ec0e405a32dab2fd7"
 username = None
 switcher_version = None
 matchfix_version = None
@@ -3027,7 +3027,6 @@ def main_logic():
         with open(path, 'r', encoding='utf-8-sig') as f:
             return json.load(f)
 
-
     def get_broadcaster():
         path = get_streamerbot_path()
         if not path:
@@ -3041,11 +3040,12 @@ def main_logic():
             print("JSON ERROR:", e)
             return None
 
-        users = data.get('users', {})
+        users_raw = data.get('users', {})
+        users = list(users_raw.values()) if isinstance(users_raw, dict) else users_raw
 
         # Broadcaster (role 4), Twitch bevorzugt
         admin = next(
-            (u for u in users.values()
+            (u for u in users
             if u.get('type') == 'twitch' and int(u.get('role', 0)) == 4),
             None
         )
@@ -3053,7 +3053,7 @@ def main_logic():
         # Fallback Kick
         if not admin:
             admin = next(
-                (u for u in users.values()
+                (u for u in users
                 if u.get('type') == 'kick' and int(u.get('role', 0)) == 4),
                 None
             )
@@ -3061,9 +3061,7 @@ def main_logic():
         if not admin:
             return None
 
-        
-        return admin.get('display') or admin.get('name')
-    
+        return admin.get('display') or admin.get('name')    
     def get_windows_edition():
         try:
             import winreg

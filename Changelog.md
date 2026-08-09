@@ -1,3 +1,15 @@
+## :small_blue_diamond: **v2.0.18-Sv1.0.2 (DE)**
+
+### 🛠️ Fixes
+- 🔧 Broadcaster Username aus der user.bat extrahieren gefixed. Streamer.bot update hat die weise wie er gespeichert wird geändert. Beide Varianten funktionieren jetzt zwecks Backward-Kompatibilität.
+
+
+## :small_blue_diamond: **v2.0.18-Sv1.0.2 (EN)**
+
+### 🛠️ Fixes
+- 🔧 Broadcaster Username extraction from user.bat fixed. Streamer.bot update has changed the way it saves the username. Both variants now work for backward compatibility.
+
+
 ## :small_blue_diamond: **v2.0.17-Sv1.0.2 (DE)**
 
 ### 🚀 Neue Features
