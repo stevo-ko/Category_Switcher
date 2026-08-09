@@ -2304,8 +2304,8 @@ def main_logic():
     global windowsapps_map
     
     
-##    print(config_path)
-##    print(last_modified)
+    ##print(config_path)
+    ##print(last_modified)
     ctypes.windll.kernel32.SetConsoleTitleW("Category Switcher")
     sys.argv[0] = ("Category Switcher")
 ##    print(settingspath)
