@@ -1,3 +1,14 @@
+## :small_blue_diamond: **v2.0.19-Sv1.0.2 (DE)**
+
+### 🛠️ Fixes
+- 🔧 Leerer Game Name bei Backend Api Reports behoben
+
+
+## :small_blue_diamond: **v2.0.19-Sv1.0.2 (EN)**
+
+### 🛠️ Fixes
+- 🔧 Fixed empty game name in backend api reports
+
 ## :small_blue_diamond: **v2.0.18-Sv1.0.2 (DE)**
 
 ### 🛠️ Fixes

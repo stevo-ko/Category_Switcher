@@ -4298,7 +4298,7 @@ def main_logic():
                                         
                                         wiki_name = search_wikipedia_game(game_folder)
 
-                                        if wiki_name != window_title:
+                                        if wiki_name and wiki_name != window_title:
                                                                                 
                                             categories = search_twitch_category(token, wiki_name)  
                                             alternatives_tried = True
