@@ -4292,6 +4292,7 @@ def main_logic():
                                         print(f"\n✅ Trying alternative way for category finding")
                                     
                                     window_title = get_window_title_by_exe(pid, timeout=30)
+                                    
                                     categories_window_title = search_twitch_category(token, window_title) 
                                     
                                     if not categories_window_title:
@@ -4360,14 +4361,14 @@ def main_logic():
                                     if unique_id not in seen_processes:
                                         displayed_no_category_kick = False                                    
                                     kick_categories = search_kick_category(kick_token, kick_game_folder)
-                                    
+
                                     if not kick_categories:
                                         
                                         if not alternatives_tried_kick:
                                             window_title = get_window_title_by_exe(pid) 
                                             kick_categories_window_title = search_kick_category(kick_token, window_title)                          
                                             if not kick_categories_window_title:
-                                                if wiki_name != window_title:
+                                                if wiki_name and wiki_name != window_title:
                                                     kick_categories = search_kick_category(kick_token, wiki_name)
                                                     alternatives_tried_kick = True
                                                     kick_game_folder = wiki_name

@@ -1,4 +1,12 @@
 # 🧩 Match Liste — Matchfixes Changelog
+## v0.09 (DE)
+
+- 📝 `Portal` Namens-Mapping hinzugefügt, weil Kick Spezial Leerzeichen beim Namen hat.
+
+## v0.09 (EN)
+
+- 📝 `Portal` Namens-Mapping added, because Kick has special characters in the name.
+
 ## v0.04 (DE)
 
 - 🚫 EOSBootStrapper ausgeschlossen
