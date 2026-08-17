@@ -2191,6 +2191,7 @@ previous_game_folder = None
 prev_game_set = False
 first_save = False
 game_folder = "Nothing"
+kick_game_folder = "Nothing"
 found_folder = None
 alternatives_tried = False
 alternatives_tried_kick = False
@@ -2266,13 +2267,13 @@ switcher_version = None
 matchfix_version = None
 operating_system = None
 windowsapps_map = {}       # {exe_name.lower(): display_name}
-
-
+report_twitch_category = None
+report_kick_category = None
 
 
 def main_logic():
     
-    global token, CLIENT_ID, token_valid, category_set_already, language, previous_saved_games, previous_game_folder, prev_game_set, first_save, game_folder, alternatives_tried, alternatives_tried_kick, config_path, last_modified, message, with_console, known_exe_names, settingspath, update_from_version_below_2, printed_closed, found_folder
+    global token, CLIENT_ID, token_valid, category_set_already, language, previous_saved_games, previous_game_folder, prev_game_set, first_save, game_folder, kick_game_folder, alternatives_tried, alternatives_tried_kick, config_path, last_modified, message, with_console, known_exe_names, settingspath, update_from_version_below_2, printed_closed, found_folder
 
     ##art exe names
     global known_art_exe_names
@@ -2298,7 +2299,7 @@ def main_logic():
     global default_category, default_twitch_category, default_kick_category
     
     ## Variables for report system
-    global report_sended, window_title, wiki_title, BACKEND_URL, backend_token, username, switcher_version, matchfix_version, avatar_url, operating_system, version_path, backend_api
+    global report_sended, window_title, wiki_title, BACKEND_URL, backend_token, username, switcher_version, matchfix_version, avatar_url, operating_system, version_path, backend_api, report_twitch_category, report_kick_category
     
     ## Dict for windowsapps
     global windowsapps_map
@@ -2433,7 +2434,9 @@ def main_logic():
         allowed_paths = config["paths"]["allowed_paths"]
         excluded_names = set(config["paths"]["excluded_names"])  # In ein Set umwandeln / convert to a set
         excluded_folders = set(config["paths"]["excluded_folders"])  # In ein Set umwandeln / convert to a set
-        
+        if rules:                                                          # NEU
+            excluded_folders |= set(rules.get("excluded_folders_in_code", []))
+            
         # Optionen
         # options
         watch_streamerbot = bool(config["options"]["watch_streamerbot"])
@@ -3125,31 +3128,49 @@ def main_logic():
     def send_report():
         if not DEBUG_MODE:
             try:
+                payload = {
+                    "error": "Category Not Found",
+                    "stack": "",
+                    "username": username,
+                    "version": switcher_version,
+                    "matchfix_version": matchfix_version,
+                    "os": operating_system,
+                    "game_folder": game_folder,
+                    "exe_path": exe_path,
+                    "window_title": window_title,
+                    "wiki_title": wiki_title
+                }
+
+                if report_twitch_category is not None:
+                    payload["twitch_category"] = report_twitch_category
+
+                if report_kick_category is not None:
+                    payload["kick_category"] = report_kick_category
+
                 res = requests.post(
                     f"{BACKEND_URL}/report",
-                    json={
-                        "error": "Category Not Found",
-                        "stack": "",
-                        "username": username,
-                        "version": switcher_version,
-                        "matchfix_version": matchfix_version,
-                        "os": operating_system,
-                        "game_folder": game_folder,
-                        "exe_path": exe_path,
-                        "window_title": window_title,
-                        "wiki_title": wiki_title
-                    },
+                    json=payload,
                     headers={"X-Api-Key": backend_token},
                     timeout=5
                 )
-
                 return res
-
             except requests.RequestException as e:
                 print("REQUEST FAILED:", e)
                 return None
 
+    extra_qualifier_words = [
+        "multiplayer", "singleplayer", "single player", "campaign",
+        "co-op", "coop", "open beta", "closed beta", "playtest",
+        "early access", "demo", "alpha", "beta", "test"
+    ]
 
+    def strip_qualifiers(s):
+        """Entfernt bekannte Zusatz-/Modusbegriffe aus einer KOPIE des Strings, für Matching-Zwecke."""
+        result = s
+        for word in extra_qualifier_words:
+            result = re.sub(r'(?i)\b' + re.escape(word) + r'\b', '', result)
+        result = re.sub(r'[\s\-_():]+', ' ', result).strip()
+        return result
 
     # Funktion, um eine Twitch-Kategorie per Name zu suchen
     # Function to search Twitch-category with the Name
@@ -3829,6 +3850,8 @@ def main_logic():
         excluded_exe_exact = set(rules["excluded_exe_exact_in_code"])
         game_name_mappings = rules["game_name_mappings"]
         game_name_exact = rules["game_name_exact"]
+        excluded_folders |= set(rules.get("excluded_folders_in_code", []))
+        
         
     else:
         if language == 1:
@@ -4268,7 +4291,14 @@ def main_logic():
                         
                     
                     elif not game_data or kick_missing:
-
+                        
+                        if unique_id not in seen_processes:  
+                            report_sended = False
+                            alternatives_tried = False
+                            alternatives_tried_kick = False
+                            report_twitch_category = None
+                            report_kick_category = None
+                                                        
                         if not displayed_warning:
                             if language == 1:
                                 print(f"\n✅ Gestartet: PID {pid}, Spiel: {game_folder}, Path: {path_norm}\n")
@@ -4277,11 +4307,12 @@ def main_logic():
                                 print(f"\n✅ Started: PID {pid}, Game: {game_folder}, Path: {path_norm}\n")
 
                         if not only_local_db:
-                            
+                            twitch_matched = False        # NEU — hier, bevor irgendein Pfad genommen wird
+                            kick_matched = not kick_enabled                             
                             # Twitch-Kategorie suchen
                             # Search Twitch Category
                             categories = search_twitch_category(token, game_folder)
-    ##                        print(categories)
+                            
                             if not categories:
 
                                 if not alternatives_tried:
@@ -4291,8 +4322,8 @@ def main_logic():
                                     if language == 0:
                                         print(f"\n✅ Trying alternative way for category finding")
                                     
-                                    window_title = get_window_title_by_exe(pid, timeout=30)
-                                    
+                                    #window_title = get_window_title_by_exe(pid, timeout=30)
+                                    window_title = "Gears of War E-Day"
                                     categories_window_title = search_twitch_category(token, window_title) 
                                     
                                     if not categories_window_title:
@@ -4352,9 +4383,17 @@ def main_logic():
                                                 if fallback_score > threshold and fallback_score > highest_score:
                                                     final_check_score = fuzz.ratio(game_splitted, category["name"].lower())
                                                     if final_check_score > threshold:
-                                                        highest_score = fallback_score
-                                                        best_match = category                                      
-
+                                                        highest_score = final_check_score
+                                                        best_match = category  
+                                                else:
+                                                    cleaned_folder = strip_qualifiers(game_folder)
+                                                    cleaned_category_name = strip_qualifiers(category["name"])
+                                                    if cleaned_folder and cleaned_folder.lower() != game_folder.lower():
+                                                        cleaned_score = fuzz.ratio(cleaned_folder.lower(), cleaned_category_name.lower(), score_cutoff=threshold) # NEU
+                                                        if cleaned_score is not None and cleaned_score > highest_score:
+                                                            highest_score = cleaned_score
+                                                            best_match = category                                    
+                                    
                                 
                             
                                 if kick_enabled:
@@ -4365,8 +4404,10 @@ def main_logic():
                                     if not kick_categories:
                                         
                                         if not alternatives_tried_kick:
-                                            window_title = get_window_title_by_exe(pid) 
-                                            kick_categories_window_title = search_kick_category(kick_token, window_title)                          
+                                           # window_title = get_window_title_by_exe(pid) 
+                                            window_title = "Gears of War E-Day"
+                                            kick_categories_window_title = search_kick_category(kick_token, window_title) 
+                                            print(kick_categories_window_title)                         
                                             if not kick_categories_window_title:
                                                 if wiki_name and wiki_name != window_title:
                                                     kick_categories = search_kick_category(kick_token, wiki_name)
@@ -4393,7 +4434,9 @@ def main_logic():
                                         # Falls kein exakter Match, Fuzzy-Matching
                                         if not kick_best_match:
                                             for kick_category in kick_categories:
+                                                raw_score = fuzz.ratio(kick_game_folder.lower(), kick_category["name"].lower()) 
                                                 score = fuzz.ratio(kick_game_folder.lower(), kick_category["name"].lower(), score_cutoff=threshold)
+                                                
                                                 if score is not None and score > highest_score_kick:
                                                     highest_score_kick = score
                                                     kick_best_match = kick_category
@@ -4407,11 +4450,21 @@ def main_logic():
                                                     if fallback_score > threshold and fallback_score > highest_score_kick:
                                                         final_check_score = fuzz.ratio(kick_game_splitted, kick_category["name"].lower())
                                                         if final_check_score > threshold:
-                                                            highest_score_kick = fallback_score
+                                                            highest_score_kick = final_check_score
                                                             kick_best_match = kick_category
-
+                                                    else:
+                                                        cleaned_folder = strip_qualifiers(kick_game_folder)
+                                                        cleaned_category_name = strip_qualifiers(kick_category["name"])
+                                                        if cleaned_folder and cleaned_folder.lower() != kick_game_folder.lower():
+                                                            cleaned_score = fuzz.ratio(cleaned_folder.lower(), cleaned_category_name.lower(), score_cutoff=threshold)
+                                                            
+                                                            if cleaned_score is not None and cleaned_score > highest_score_kick:
+                                                                highest_score_kick = cleaned_score
+                                                                kick_best_match = kick_category
                                 
                                 if best_match:
+                                    twitch_matched = True
+                                    report_twitch_category = best_match['name']
                                     if game_folder == "Silent Hill 2":
                                         game_data = {
                                             "Game": game_folder,
@@ -4463,6 +4516,8 @@ def main_logic():
                                             game_data["Kick Category ID"] = str(kick_best_match["id"])
                                             game_data["Kick Thumbnail"] = kick_best_match["thumbnail"]
                                             kick_missing = False
+                                            kick_matched = True
+                                            report_kick_category = kick_best_match['name']
                                         else:
                                             kick_best_match = {
                                                 "name": "No Match",
@@ -4636,10 +4691,11 @@ def main_logic():
                                             send_message(game_folder, category_name, kick_category_name)
                                         else:                                    
                                             send_message(game_folder, category_name) 
-                            if not report_sended:
-                                if backend_api:    
-                                    send_report() 
-                                    report_sended = True
+                            if not (twitch_matched and kick_matched):
+                                if not report_sended:
+                                    if backend_api:
+                                        send_report() 
+                                        report_sended = True
                         else:
                             
                             if not displayed_warning:

@@ -1,8 +1,19 @@
+## :small_blue_diamond: **v2.0.20-Sv1.0.2 (DE)**
+
+### 🛠️ Fixes
+- 🔧 Reports senden nur mehr wenn Twitch oder Kick Kategorie nicht gefunden wurde. Und was gefunden wurde von beidem, wird auch mitgesendet.
+- 🔧 Beim finden der Kategorie einen zusätzlichen fallback hinzugefügt.
+
+## :small_blue_diamond: **v2.0.20-Sv1.0.2 (EN)**
+
+### 🛠️ Fixes
+- 🔧 Reports are now only sent if Twitch or Kick category was not found. And what was found from both, is also sent.
+- 🔧 Additional fallback added when finding the category.
+
 ## :small_blue_diamond: **v2.0.19-Sv1.0.2 (DE)**
 
 ### 🛠️ Fixes
 - 🔧 Leerer Game Name bei Backend Api Reports behoben
-
 
 ## :small_blue_diamond: **v2.0.19-Sv1.0.2 (EN)**
 
