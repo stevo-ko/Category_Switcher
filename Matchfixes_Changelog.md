@@ -1,4 +1,15 @@
 # 🧩 Match Liste — Matchfixes Changelog
+
+## v0.10 (DE)
+
+- 📝 `Ausgeschlossene Ordner` hinzugefügt um diese mit dne matchfixes aktualisieren zu können
+- 🚫 VRBridger ausgeschlossen
+
+## v0.10 (EN)
+
+- 📝 `Excluded folders` added to update this with dne matchfixes
+- 🚫 VRBridger excluded
+
 ## v0.09 (DE)
 
 - 📝 `Portal` Namens-Mapping hinzugefügt, weil Kick Spezial Leerzeichen beim Namen hat.
