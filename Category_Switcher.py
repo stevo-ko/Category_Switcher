@@ -4180,7 +4180,6 @@ def main_logic():
                             kick_game_folder = mapping.get("kick_result", game_folder)
                             break          
                         
-
                     # Spezial Fälle um Twitch Kategorie richtig zu matchen            
                     # Edge cases setting game_folder forceful to get twitch match            
                     if "Intergrade" in game_folder:
@@ -4311,6 +4310,7 @@ def main_logic():
                             kick_matched = not kick_enabled                             
                             # Twitch-Kategorie suchen
                             # Search Twitch Category
+                            
                             categories = search_twitch_category(token, game_folder)
                             
                             if not categories:
@@ -4322,8 +4322,7 @@ def main_logic():
                                     if language == 0:
                                         print(f"\n✅ Trying alternative way for category finding")
                                     
-                                    #window_title = get_window_title_by_exe(pid, timeout=30)
-                                    window_title = "Gears of War E-Day"
+                                    window_title = get_window_title_by_exe(pid, timeout=30)
                                     categories_window_title = search_twitch_category(token, window_title) 
                                     
                                     if not categories_window_title:
