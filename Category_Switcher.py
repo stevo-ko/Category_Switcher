@@ -3098,7 +3098,7 @@ def main_logic():
 
     
     def send_user():
-        if not DEBUG_MODE:
+        if DEBUG_MODE:
             if username:
                 # User registrieren
                 requests.post(
@@ -4314,7 +4314,7 @@ def main_logic():
                             categories = search_twitch_category(token, game_folder)
                             
                             if not categories:
-
+                                
                                 if not alternatives_tried:
                                     if language == 1:
                                         print(f"\n✅ Versuche alternativen Weg für Kategorie findung")
@@ -4403,8 +4403,8 @@ def main_logic():
                                     if not kick_categories:
                                         
                                         if not alternatives_tried_kick:
-                                           # window_title = get_window_title_by_exe(pid) 
-                                            window_title = "Gears of War E-Day"
+                                            window_title = get_window_title_by_exe(pid) 
+                                            
                                             kick_categories_window_title = search_kick_category(kick_token, window_title) 
                                             print(kick_categories_window_title)                         
                                             if not kick_categories_window_title:
