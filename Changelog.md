@@ -1,3 +1,9 @@
+## :small_blue_diamond: **v2.0.22-Sv1.0.2 (DE)**
+- 🔧 Fehler von 2.0.21 war nicht behoben..
+
+## :small_blue_diamond: **v2.0.22-Sv1.0.2 (EN)**
+- 🔧 Error mentioned in 2.0.21 was not fixed.
+
 ## :small_blue_diamond: **v2.0.21-Sv1.0.2 (DE)**
 - 🔧 Kleinen aber dummen Fehler behoben
 
