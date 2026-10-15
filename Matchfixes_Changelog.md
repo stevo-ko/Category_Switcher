@@ -1,10 +1,10 @@
 # 🧩 Match Liste — Matchfixes Changelog
 
-## v0.19 (DE)
+## v0.20 (DE)
 
 - 🎯 `Portal 2 Community Edition` Mapping auf `Portal 2` hinzugefügt
 
-## v0.19 (EN)
+## v0.20 (EN)
 
 - 🎯 `Portal 2 Community Edition` Mapping to `Portal 2` added
 
