@@ -1,5 +1,13 @@
 # 🧩 Match Liste — Matchfixes Changelog
 
+## v0.19 (DE)
+
+- 🎯 `Portal 2 Community Edition` Mapping auf `Portal 2` hinzugefügt
+
+## v0.19 (EN)
+
+- 🎯 `Portal 2 Community Edition` Mapping to `Portal 2` added
+
 ## v0.10 (DE)
 
 - 📝 `Ausgeschlossene Ordner` hinzugefügt um diese mit dne matchfixes aktualisieren zu können
