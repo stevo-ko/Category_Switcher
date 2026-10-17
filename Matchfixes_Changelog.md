@@ -1,5 +1,13 @@
 # 🧩 Match Liste — Matchfixes Changelog
 
+## v0.21 (DE)
+
+- 🚫 `hjc.gamesir.nexus2_0.exe` ausgeschlossen
+
+## v0.21 (EN)
+
+- 🚫 `hjc.gamesir.nexus2_0.exe` excluded
+
 ## v0.19 (DE)
 
 - 🎯 `Portal 2 Community Edition` Mapping auf `Portal 2` hinzugefügt
