@@ -1,5 +1,15 @@
 # 🧩 Match Liste — Matchfixes Changelog
 
+## v0.22 (DE)
+
+- 🚫 `hjc.gamesir.nexus2_0` ausgeschlossen
+- 🚫 `soundpad` ausgeschlossen
+
+## v0.22 (EN)
+
+- 🚫 `hjc.gamesir.nexus2_0` excluded
+- 🚫 `soundpad` excluded
+
 ## v0.21 (DE)
 
 - 🚫 `hjc.gamesir.nexus2_0.exe` ausgeschlossen
