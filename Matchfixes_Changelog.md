@@ -1,5 +1,19 @@
 # 🧩 Match Liste — Matchfixes Changelog
 
+## v0.23 (DE)
+
+- 🚫 Ordner `nxoverlay` ausgeschlossen
+- 🚫 Ordner `appdata` ausgeschlossen
+- 🚫 Pfad-Muster `appdata/grap` ausgeschlossen
+- 🎯 `Maplestorycw` Mapping auf `Maplestory Classic World` hinzugefügt
+
+## v0.23 (EN)
+
+- 🚫 Folder `nxoverlay` excluded
+- 🚫 Folder `appdata` excluded
+- 🚫 Path pattern `appdata/grap` excluded
+- 🎯 `Maplestorycw` Mapping to `Maplestory Classic World` added
+
 ## v0.22 (DE)
 
 - 🚫 `hjc.gamesir.nexus2_0` ausgeschlossen
