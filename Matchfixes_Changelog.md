@@ -1,5 +1,13 @@
 # 🧩 Match Liste — Matchfixes Changelog
 
+## v0.24 (DE)
+
+- 🚫 `ngservice` ausgeschlossen
+
+## v0.24 (EN)
+
+- 🚫 `ngservice` excluded
+
 ## v0.23 (DE)
 
 - ✏️ `Maplestorycw` Mapping auf `Maplestory` angepasst
