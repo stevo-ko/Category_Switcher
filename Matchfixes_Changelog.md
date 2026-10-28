@@ -1,5 +1,13 @@
 # 🧩 Match Liste — Matchfixes Changelog
 
+## v0.25 (DE)
+
+- 🚫 `ffmpeg` ausgeschlossen
+
+## v0.25 (EN)
+
+- 🚫 `ffmpeg` excluded
+
 ## v0.24 (DE)
 
 - 🚫 `ngservice` ausgeschlossen
