@@ -1,3 +1,11 @@
+## :small_blue_diamond: **v2.0.23-Sv1.0.2 (DE)**
+- 🔔 Matfixes werden jetzt alle 15 Minuten abgefragt, wenn neuere Version vorhanden still upgedated.
+- 🔔 C# umstellung angefangen.
+
+## :small_blue_diamond: **v2.0.23-Sv1.0.2 (EN)**
+- 🔔 Matfixes are now checked every 15 minutes, if new version is detected it will get updated silently
+- 🔔 C# transition started.
+
 ## :small_blue_diamond: **v2.0.22-Sv1.0.2 (DE)**
 - 🔧 Fehler von 2.0.21 war nicht behoben..
 

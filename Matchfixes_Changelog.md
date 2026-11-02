@@ -1,5 +1,63 @@
 # 🧩 Match Liste — Matchfixes Changelog
 
+## v0.26 (DE)
+
+- 🎯 `Brawlrecompiled` Mapping auf `Super Smash Bros. Brawl` hinzugefügt
+
+## v0.26 (EN)
+
+- 🎯 `Brawlrecompiled` Mapping to `Super Smash Bros. Brawl` added
+
+## v0.25 (DE)
+
+- 🚫 `ffmpeg` ausgeschlossen
+
+## v0.25 (EN)
+
+- 🚫 `ffmpeg` excluded
+
+## v0.24 (DE)
+
+- 🚫 `ngservice` ausgeschlossen
+
+## v0.24 (EN)
+
+- 🚫 `ngservice` excluded
+
+## v0.23 (DE)
+
+- ✏️ `Maplestorycw` Mapping auf `Maplestory` angepasst
+
+## v0.23 (EN)
+
+- ✏️ `Maplestorycw` Mapping to `Maplestory` updated
+
+## v0.22 (DE)
+
+- 🚫 `hjc.gamesir.nexus2_0` ausgeschlossen
+- 🚫 `soundpad` ausgeschlossen
+
+## v0.22 (EN)
+
+- 🚫 `hjc.gamesir.nexus2_0` excluded
+- 🚫 `soundpad` excluded
+
+## v0.21 (DE)
+
+- 🚫 `hjc.gamesir.nexus2_0.exe` ausgeschlossen
+
+## v0.21 (EN)
+
+- 🚫 `hjc.gamesir.nexus2_0.exe` excluded
+
+## v0.19 (DE)
+
+- 🎯 `Portal 2 Community Edition` Mapping auf `Portal 2` hinzugefügt
+
+## v0.19 (EN)
+
+- 🎯 `Portal 2 Community Edition` Mapping to `Portal 2` added
+
 ## v0.10 (DE)
 
 - 📝 `Ausgeschlossene Ordner` hinzugefügt um diese mit dne matchfixes aktualisieren zu können
