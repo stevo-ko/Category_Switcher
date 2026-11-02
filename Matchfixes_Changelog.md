@@ -1,5 +1,13 @@
 # 🧩 Match Liste — Matchfixes Changelog
 
+## v0.26 (DE)
+
+- 🎯 `Brawlrecompiled` Mapping auf `Super Smash Bros. Brawl` hinzugefügt
+
+## v0.26 (EN)
+
+- 🎯 `Brawlrecompiled` Mapping to `Super Smash Bros. Brawl` added
+
 ## v0.25 (DE)
 
 - 🚫 `ffmpeg` ausgeschlossen
