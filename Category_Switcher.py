@@ -33,6 +33,7 @@ import asyncio
 import shutil
 import hashlib
 import struct
+import base64
 
 
 default_config = {
@@ -397,6 +398,7 @@ from watchdog.events import FileSystemEventHandler
 from toasted import Toast, Text, Progress, ToastTextStyle, ToastTextAlign, ToastDuration, ToastDismissReason, ToastScenario, ToastImagePlacement, ToastNotificationMode, ToastSound, Button, ToastButtonStyle, Image, ToastResult
 from PIL import Image as PILImage
 
+
 class _ChangelogSignal(QObject):
     open_changelog = pyqtSignal(str, str, str)
 
@@ -418,6 +420,10 @@ def get_resource_path(relative_path):
         base_path = os.path.dirname(os.path.abspath(__file__))
 
     return os.path.join(base_path, "_internal", "Assets", relative_path)
+
+
+
+
 # Dummy für Test
 CHANGELOG_DUMMY = """
  
@@ -1285,9 +1291,337 @@ def _show_changelog():
 
 def _init_changelog_signal():
     _changelog_signal.open_changelog.connect(_open_changelog_window, Qt.QueuedConnection)
+    _deprecation_signal.open_popup.connect(_open_deprecation_window, Qt.QueuedConnection) 
     if console is not None:
         _gui_signals.show_console_window.connect(console.show)
         _gui_signals.hide_console_window.connect(console.hide)
+
+
+import html as _html
+ 
+DEPRECATION_DEFAULT_LINKS = {
+    "website": "https://stevo-ko.de",
+    "discord": "",  # <- Discord-Invite eintragen (leer = "Discord" ohne Link)
+    "github":  "https://github.com/stevo-ko/Category_Switcher",  # <- ggf. auf das C#-Repo ändern
+}
+ 
+ 
+class _DeprecationSignal(QObject):
+    open_popup = pyqtSignal(dict)
+ 
+_deprecation_signal = _DeprecationSignal()
+_open_info_dialogs = []  # hält Referenzen, damit der GC das Fenster nicht schließt
+ 
+ 
+def _check_python_deprecation():
+    """Fragt beim Backend nach, ob die Python-Variante als eingestellt markiert ist.
+    Läuft im Hintergrund-Thread; das Fenster selbst wird per Signal im Qt-Thread geöffnet."""
+    try:
+        url = BACKEND_URL.rstrip("/") + "/python-status"
+        headers = {"X-Api-Key": backend_token} if backend_token else None
+        r = requests.get(url, headers=headers, timeout=5)
+        if r.status_code != 200:
+            _vlog(f"python-status: HTTP {r.status_code}")
+            return
+        data = r.json()
+    except Exception as e:
+        _vlog(f"python-status Fehler: {e}")
+        return
+ 
+    if not isinstance(data, dict) or not data.get("deprecated"):
+        return
+ 
+    links = dict(DEPRECATION_DEFAULT_LINKS)
+    for key in links:
+        value = data.get(f"{key}_url")
+        if isinstance(value, str) and value.startswith(("https://", "http://")):
+            links[key] = value
+ 
+    _deprecation_signal.open_popup.emit(links)
+ 
+ 
+def _open_deprecation_window(links: dict):
+    try:
+        de = (language == 1)
+        app_instance = QApplication.instance() or QApplication(sys.argv)
+ 
+        dialog = QDialog()
+        dialog.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog | Qt.WindowStaysOnTopHint)
+        dialog.setWindowTitle("Category Switcher")
+        dialog.setWindowIcon(QIcon(get_resource_path("icon.ico")))
+        dialog.setAttribute(Qt.WA_TranslucentBackground, True)
+        dialog.setAttribute(Qt.WA_QuitOnClose, False)
+        dialog.setFixedWidth(620)
+ 
+        dlg_layout = QVBoxLayout(dialog)
+        dlg_layout.setContentsMargins(0, 0, 0, 0)
+ 
+        # ── Outer container ────────────────────────────────
+        outer = QFrame()
+        outer.setObjectName("outerFrame")
+        outer.setStyleSheet("""
+            #outerFrame {
+                background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
+                    stop:0 #080F13, stop:0.25 #0C1C2A, stop:0.5 #132E40,
+                    stop:0.72 #1A3D52, stop:0.88 #204A60, stop:1 #265468);
+                border: 1px solid #28AEED;
+                border-radius: 14px;
+            }
+        """)
+        dlg_layout.addWidget(outer)
+ 
+        main_layout = QVBoxLayout(outer)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
+ 
+        # ── Drag ───────────────────────────────────────────
+        _drag_pos = [None]
+        def mousePressEvent(e):
+            if e.button() == Qt.LeftButton:
+                _drag_pos[0] = e.globalPos() - dialog.frameGeometry().topLeft()
+        def mouseMoveEvent(e):
+            if e.buttons() == Qt.LeftButton and _drag_pos[0]:
+                dialog.move(e.globalPos() - _drag_pos[0])
+        def mouseReleaseEvent(e):
+            _drag_pos[0] = None
+ 
+        # ── Titlebar ───────────────────────────────────────
+        titlebar = QFrame()
+        titlebar.setObjectName("titlebar")
+        titlebar.setFixedHeight(38)
+        titlebar.setStyleSheet("""
+            #titlebar {
+                background: transparent;
+                border-bottom: 1px solid #1D3545;
+                border-top-left-radius: 14px;
+                border-top-right-radius: 14px;
+            }
+        """)
+        titlebar.mousePressEvent   = mousePressEvent
+        titlebar.mouseMoveEvent    = mouseMoveEvent
+        titlebar.mouseReleaseEvent = mouseReleaseEvent
+ 
+        tb_layout = QHBoxLayout(titlebar)
+        tb_layout.setContentsMargins(14, 0, 14, 0)
+        tb_layout.setSpacing(6)
+ 
+        icon_lbl = QLabel()
+        px = QPixmap(get_resource_path("icon.ico"))
+        icon_lbl.setPixmap(px.scaled(14, 14, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+        icon_lbl.setStyleSheet("background: transparent; border: none;")
+        tb_layout.addWidget(icon_lbl)
+ 
+        t1 = QLabel("Category Switcher")
+        t1.setFont(QFont("Segoe UI", 10))
+        t1.setStyleSheet("color: #bfcfd6; background: transparent; border: none;")
+        tb_layout.addWidget(t1)
+ 
+        t2 = QLabel("— Hinweis" if de else "— Notice")
+        t2.setFont(QFont("Segoe UI", 10))
+        t2.setStyleSheet("color: #5A8A9A; background: transparent; border: none;")
+        tb_layout.addWidget(t2)
+        tb_layout.addStretch()
+ 
+        close_dot = QPushButton()
+        close_dot.setFixedSize(12, 12)
+        close_dot.setCursor(QCursor(Qt.PointingHandCursor))
+        close_dot.setStyleSheet("""
+            QPushButton { background: #7a1f1f; border: 1px solid #7a1f1f; border-radius: 6px; }
+            QPushButton:hover { background: #E81123; border-color: #E81123; }
+        """)
+        close_dot.clicked.connect(dialog.accept)
+        tb_layout.addWidget(close_dot)
+        main_layout.addWidget(titlebar)
+ 
+        # ── Accent line ────────────────────────────────────
+        accent = QFrame()
+        accent.setFixedHeight(1)
+        accent.setStyleSheet("""
+            background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                stop:0 #28AEED, stop:0.5 #00D4E8, stop:1 #1A6A9A);
+            border: none;
+        """)
+        main_layout.addWidget(accent)
+ 
+        # ── Header ─────────────────────────────────────────
+        body = QFrame()
+        body.setStyleSheet("background: transparent;")
+        body_layout = QVBoxLayout(body)
+        body_layout.setContentsMargins(18, 14, 18, 16)
+        body_layout.setSpacing(0)
+ 
+        hdr_row = QWidget()
+        hdr_row.setFixedHeight(26)
+        hdr_row.setStyleSheet("background: transparent;")
+        hdr_rl = QHBoxLayout(hdr_row)
+        hdr_rl.setContentsMargins(0, 0, 0, 0)
+        hdr_rl.setSpacing(8)
+ 
+        dot_bar = QFrame()
+        dot_bar.setObjectName("dotBar")
+        dot_bar.setFixedSize(2, 20)
+        dot_bar.setStyleSheet("""
+            #dotBar {
+                background: qlineargradient(x1:0,y1:0,x2:0,y2:1,
+                    stop:0 #1A6A9A, stop:0.5 #28AEED, stop:1 #1A6A9A);
+                border-radius: 1px; border: none;
+            }
+        """)
+        hdr_rl.addWidget(dot_bar)
+ 
+        hdr_lbl = QLabel("Python-Variante" if de else "Python version")
+        hdr_lbl.setFont(QFont("Cascadia Code", 13, QFont.Bold))
+        hdr_lbl.setStyleSheet("color: #28AEED; background: transparent; border: none;")
+        hdr_rl.addWidget(hdr_lbl)
+ 
+        tag = QLabel(" eingestellt " if de else " discontinued ")
+        tag.setFont(QFont("Cascadia Code", 9, QFont.Bold))
+        tag.setFixedHeight(18)
+        tag.setStyleSheet("""
+            color: #28AEED; background: rgba(40,174,237,0.10);
+            border: 1px solid rgba(40,174,237,0.20);
+            border-radius: 4px; padding: 0px 4px;
+        """)
+        hdr_rl.addWidget(tag)
+ 
+        fade_line = QFrame()
+        fade_line.setFixedHeight(1)
+        fade_line.setStyleSheet("""
+            background: qlineargradient(x1:0,y1:0,x2:1,y2:0,
+                stop:0 rgba(40,174,237,0.4), stop:1 transparent);
+            border: none;
+        """)
+        hdr_rl.addWidget(fade_line, 1)
+        body_layout.addWidget(hdr_row)
+        body_layout.addSpacing(12)
+ 
+        # ── Text-Card ──────────────────────────────────────
+        def _link(url, text):
+            text = _html.escape(text)
+            if not url:
+                return f'<span style="color:#9DD4E8;">{text}</span>'
+            return (f'<a href="{_html.escape(url, quote=True)}" '
+                    f'style="color:#28AEED;text-decoration:none;font-weight:bold;">{text}</a>')
+ 
+        web  = _link(links.get("website"), "stevo-ko.de")
+        disc = _link(links.get("discord"), "Discord")
+        gh   = _link(links.get("github"),  "GitHub")
+ 
+        if de:
+            paragraphs = [
+                "Danke für das Verwenden des Category Switchers in der Python-Variante.",
+                "Mittlerweile wurde er in C# umgeschrieben, damit er nur mehr im "
+                "Streamer.bot läuft und die Entwicklung dadurch einfacher wird.",
+                f"Gehe auf {web}, in den {disc} oder auf {gh} für mehr Infos.",
+                "Du kannst die Python-Variante weiterhin verwenden. "
+                "<i>Category Not Found</i>-Fälle werden weiterhin über die Matchfixes behoben, "
+                "es werden aber keine neuen Features mehr implementiert.",
+            ]
+        else:
+            paragraphs = [
+                "Thank you for using the Python version of the Category Switcher.",
+                "It has since been rewritten in C# so that it runs entirely inside "
+                "Streamer.bot, which makes development a lot easier.",
+                f"Visit {web}, join the {disc} or check out {gh} for more info.",
+                "You can keep using the Python version. <i>Category Not Found</i> cases "
+                "will still be fixed through the matchfixes, but no new features will be added.",
+            ]
+ 
+        card = QFrame()
+        card.setObjectName("entryCard")
+        card.setStyleSheet("""
+            #entryCard {
+                background: #162535;
+                border: 1px solid #1D3545;
+                border-radius: 10px;
+            }
+        """)
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(16, 14, 16, 14)
+        cl.setSpacing(10)
+ 
+        for p in paragraphs:
+            lbl = QLabel(f'<span style="color:#9DD4E8;">{p}</span>')
+            lbl.setFont(QFont("Segoe UI", 10))
+            lbl.setTextFormat(Qt.RichText)
+            lbl.setWordWrap(True)
+            lbl.setOpenExternalLinks(True)
+            lbl.setTextInteractionFlags(Qt.TextBrowserInteraction)
+            lbl.setStyleSheet("background: transparent; border: none;")
+            cl.addWidget(lbl)
+ 
+        sig_lbl = QLabel(('Lg' if de else 'Cheers,') + ' <span style="color:#28AEED;">stevo-ko</span>')
+        sig_lbl.setFont(QFont("Segoe UI", 10, QFont.Bold))
+        sig_lbl.setTextFormat(Qt.RichText)
+        sig_lbl.setStyleSheet("color: #5A8A9A; background: transparent; border: none;")
+        cl.addSpacing(2)
+        cl.addWidget(sig_lbl)
+ 
+        body_layout.addWidget(card)
+        main_layout.addWidget(body)
+ 
+        # ── Footer ─────────────────────────────────────────
+        footer_sep = QFrame()
+        footer_sep.setFixedHeight(1)
+        footer_sep.setStyleSheet("background: #1D3545; border: none;")
+        main_layout.addWidget(footer_sep)
+ 
+        footer = QFrame()
+        footer.setObjectName("footer")
+        footer.setFixedHeight(44)
+        footer.setStyleSheet("#footer { background: transparent; border: none; }")
+        ft_layout = QHBoxLayout(footer)
+        ft_layout.setContentsMargins(18, 0, 18, 0)
+ 
+        made_by = QLabel('made by  <span style="color:#5A8A9A;">stevo_ko</span>')
+        made_by.setFont(QFont("Segoe UI", 10))
+        made_by.setTextFormat(Qt.RichText)
+        made_by.setStyleSheet("color: #3A6070; background: transparent; border: none;")
+        ft_layout.addWidget(made_by)
+        ft_layout.addStretch()
+ 
+        continue_btn = QPushButton("Trotzdem weiter" if de else "Continue")
+        continue_btn.setFixedHeight(28)
+        continue_btn.setMinimumWidth(130)
+        continue_btn.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        continue_btn.setCursor(QCursor(Qt.PointingHandCursor))
+        continue_btn.setStyleSheet("""
+            QPushButton {
+                background: #0E2030; color: #28AEED;
+                border: 1px solid #28AEED; border-radius: 7px; padding: 4px 14px;
+            }
+            QPushButton:hover { background: #1A3D52; color: #00FFFF; }
+            QPushButton:pressed { background: #0A1E2C; }
+        """)
+        continue_btn.setDefault(True)
+        continue_btn.clicked.connect(dialog.accept)
+        ft_layout.addWidget(continue_btn)
+        main_layout.addWidget(footer)
+ 
+        # ── Anzeigen ───────────────────────────────────────
+        _open_info_dialogs.append(dialog)
+        dialog.finished.connect(
+            lambda _=None, d=dialog: _open_info_dialogs.remove(d) if d in _open_info_dialogs else None
+        )
+ 
+        dialog.adjustSize()
+        screen = app_instance.primaryScreen().availableGeometry()
+        dialog.move(
+            screen.x() + (screen.width()  - dialog.width())  // 2,
+            screen.y() + (screen.height() - dialog.height()) // 2,
+        )
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+ 
+    except Exception as e:
+        if language == 1:
+            print(f"❌ Hinweis-Fenster konnte nicht geöffnet werden: {e}")
+        if language == 0:
+            print(f"❌ Notice window could not be opened: {e}")
+        import traceback
+        traceback.print_exc()
+
 
 ico_path = get_resource_path("icon.ico")
 png_path = get_resource_path("app.png")
@@ -1448,10 +1782,10 @@ def _build_result_toast(de_status: str, en_status: str, counts: dict, changed: b
 
 def _load_rules_with_toast(toast_obj=None):
     _vlog(f"_load_rules_with_toast gestartet (toast_obj={'vorhanden' if toast_obj else 'None'})")
-    key, iv    = get_key_and_iv(MATCH_ENC_KEY)
-    local_path = os.path.join(programm_ordner, "matchfixes.switcher")
+    #key, iv    = get_key_and_iv(MATCH_ENC_KEY)
+    #local_path = os.path.join(programm_ordner, "matchfixes.switcher")
     local_changelog_path = os.path.join(programm_ordner, "Matchfixes_Changelog.md")
-
+    local_path = matchfix_local_path
     def _upd(de_status, en_status, progress, de_detail, en_detail, percent):
         if toast_obj:
             _vlog(f"Toast update: {en_status} ({percent})")
@@ -1466,37 +1800,37 @@ def _load_rules_with_toast(toast_obj=None):
             except Exception as e:
                 _vlog(f"Toast update fehlgeschlagen: {e}")
 
-    def decrypt(raw):
-        verified  = verify_and_strip_hmac(raw, key)
-        decrypted = encrypt_decrypt(verified, key, iv)
-        return json.loads(decrypted)
+    # def decrypt(raw):
+    #     verified  = verify_and_strip_hmac(raw, key)
+    #     decrypted = encrypt_decrypt(verified, key, iv)
+    #     return json.loads(decrypted)
 
-    def encrypt_and_save(data):
-        raw       = json.dumps(data, ensure_ascii=False).encode()
-        encrypted = encrypt_decrypt(raw, key, iv)
-        secured   = add_hmac(encrypted, key)
-        with open(local_path, "wb") as f:
-            f.write(secured)
+    # def encrypt_and_save(data):
+    #     raw       = json.dumps(data, ensure_ascii=False).encode()
+    #     encrypted = encrypt_decrypt(raw, key, iv)
+    #     secured   = add_hmac(encrypted, key)
+    #     with open(local_path, "wb") as f:
+    #         f.write(secured)
             
-    def parse_version(v: str) -> float:
-        try:   return float(v)
-        except: return 0.0
+    # def parse_version(v: str) -> float:
+    #     try:   return float(v)
+    #     except: return 0.0
         
-    def merge(local, online):
-        if local is None:
-            return online, True
+    # def merge(local, online):
+    #     if local is None:
+    #         return online, True
         
-        local_v  = parse_version(local.get("version",  "0.00"))
-        online_v = parse_version(online.get("version", "0.00"))
+    #     local_v  = parse_version(local.get("version",  "0.00"))
+    #     online_v = parse_version(online.get("version", "0.00"))
 
-        if local_v > online_v:
-            # Lokal neuer → unverändert behalten
-            _vlog(f"Lokale Version ({local_v}) > Online ({online_v}) → behalte lokal")
-            return local, False
+    #     if local_v > online_v:
+    #         # Lokal neuer → unverändert behalten
+    #         _vlog(f"Lokale Version ({local_v}) > Online ({online_v}) → behalte lokal")
+    #         return local, False
         
-        merged  = {k: online[k] for k in online}
-        changed = merged != local
-        return merged, changed
+    #     merged  = {k: online[k] for k in online}
+    #     changed = merged != local
+    #     return merged, changed
 
     def count(r):
         return {
@@ -1554,14 +1888,14 @@ def _load_rules_with_toast(toast_obj=None):
 
     if online_raw:
         try:
-            online_rules = decrypt(online_raw)
+            online_rules = decrypt_matchfix(online_raw)
             _vlog("Online Rules entschlüsselt OK")
         except Exception as e:
             _vlog(f"Online Rules entschlüsseln FEHLER: {e}")
 
     if local_raw:
         try:
-            local_rules = decrypt(local_raw)
+            local_rules = decrypt_matchfix(local_raw)
             _vlog("Lokale Rules entschlüsselt OK")
         except Exception as e:
             _vlog(f"Lokale Rules entschlüsseln FEHLER: {e}")
@@ -1617,7 +1951,7 @@ def _load_rules_with_toast(toast_obj=None):
                 first_download=True
             ), True
 
-        merged, changed = merge(local_rules, online_rules)
+        merged, changed = merge_matchfix(local_rules, online_rules)
         counts = count(merged)
         old_version = local_rules.get("version", "?") if local_rules else "?"
         counts["old_version"] = old_version
@@ -1625,7 +1959,7 @@ def _load_rules_with_toast(toast_obj=None):
 
         if changed:
             try:
-                encrypt_and_save(merged)
+                encrypt_and_save_matchfix(merged)
                 _vlog("Merged Rules gespeichert")
                 if language == 1:
                     logging.info("✅ matchfixes.switcher aktualisiert")
@@ -2059,6 +2393,7 @@ def terminate_current_instance():
 
 
 MATCH_ENC_KEY = ""
+MATCH_API_URL = "https://api.github.com/repos/stevo-ko/Category_Switcher/contents/matchfixes.switcher?ref=main"
 
 
 def get_key_and_iv(match_enc_key):
@@ -2091,7 +2426,96 @@ def verify_and_strip_hmac(data, key):
     if not hmac.compare_digest(mac, expected):
         raise ValueError("HMAC verification failed - data tampered!")
     return content   
- 
+
+matchfix_key, matchfix_iv = get_key_and_iv(MATCH_ENC_KEY)
+matchfix_local_path = os.path.join(programm_ordner, "matchfixes.switcher")
+
+def decrypt_matchfix(raw):
+    verified  = verify_and_strip_hmac(raw, matchfix_key)
+    decrypted = encrypt_decrypt(verified, matchfix_key, matchfix_iv)
+    return json.loads(decrypted)
+
+def encrypt_and_save_matchfix(data):
+    raw       = json.dumps(data, ensure_ascii=False).encode()
+    encrypted = encrypt_decrypt(raw, matchfix_key, matchfix_iv)
+    secured   = add_hmac(encrypted, matchfix_key)
+    with open(matchfix_local_path, "wb") as f:
+        f.write(secured)
+
+def parse_matchfix_version(v: str) -> tuple:
+    try:
+        return tuple(int(p) for p in str(v).split("."))
+    except Exception:
+        return (0, 0)
+
+def merge_matchfix(local, online):
+    if local is None:
+        return online, True
+    local_v  = parse_matchfix_version(local.get("version",  "0.00"))
+    online_v = parse_matchfix_version(online.get("version", "0.00"))
+    if local_v > online_v:
+        _vlog(f"Lokale Version ({local_v}) > Online ({online_v}) → behalte lokal")
+        return local, False
+    merged  = {k: online[k] for k in online}
+    changed = merged != local
+    return merged, changed
+
+
+MATCHFIX_CHECK_INTERVAL = 15 * 60
+_matchfix_sha = None
+matchfix_excluded_folders = set()
+
+def _apply_matchfix_rules():
+    global excluded_exe_patterns, excluded_exe_names, excluded_exe_exact
+    global game_name_mappings, game_name_exact, matchfix_excluded_folders
+
+    if rules:
+        excluded_exe_patterns = rules["excluded_exe_patterns_in_code"]
+        excluded_exe_names = rules["excluded_exe_names_in_code"]
+        excluded_exe_exact = set(rules["excluded_exe_exact_in_code"])
+        game_name_mappings = rules["game_name_mappings"]
+        game_name_exact = rules["game_name_exact"]
+        matchfix_excluded_folders = set(rules.get("excluded_folders_in_code", []))
+    else:
+        if language == 1:
+            print("⚠️ Matchfixes nicht verfügbar, die Kategorien können für manche Spiele nicht korrekt gefunden werden!")
+        if language == 0:
+            print("⚠️ Matchfixes not available, finding categorys might not work properly for some games!")
+
+
+def _matchfix_watcher():
+    global rules, _matchfix_sha, matchfix_version
+
+    while True:
+        time.sleep(MATCHFIX_CHECK_INTERVAL)
+        try:
+            r = requests.get(MATCH_API_URL, timeout=5,
+                             headers={"Accept": "application/vnd.github+json"})
+            if r.status_code == 200:
+                data = r.json()
+                new_sha = data.get("sha")
+                if new_sha and new_sha != _matchfix_sha:
+                    raw = base64.b64decode(data["content"])
+                    online_rules = decrypt_matchfix(raw)
+                    merged, changed = merge_matchfix(rules, online_rules)
+                    if changed:
+                        rules = merged
+                        matchfix_version = rules.get("version")
+                        encrypt_and_save_matchfix(merged)
+                        _apply_matchfix_rules()
+                        if language == 1:
+                            print(f"✅ Matchfixes automatisch aktualisiert auf v{rules.get('version', '?')}")
+                        if language == 0:
+                            print(f"✅ Matchfixes auto-updated to v{rules.get('version', '?')}")
+                    _matchfix_sha = new_sha
+            else:
+                _vlog(f"Matchfix-Watcher API Status: {r.status_code}")
+        except Exception as e:
+            _vlog(f"Matchfix-Watcher Fehler: {e}")
+
+matchfix_watcher_thread = threading.Thread(target=_matchfix_watcher, daemon=True)
+matchfix_watcher_thread.start()
+
 
 excluded_exe_patterns = []
 excluded_exe_names = []
@@ -2434,8 +2858,8 @@ def main_logic():
         allowed_paths = config["paths"]["allowed_paths"]
         excluded_names = set(config["paths"]["excluded_names"])  # In ein Set umwandeln / convert to a set
         excluded_folders = set(config["paths"]["excluded_folders"])  # In ein Set umwandeln / convert to a set
-        if rules:                                                          # NEU
-            excluded_folders |= set(rules.get("excluded_folders_in_code", []))
+        #if rules:                                                          # NEU
+        #    excluded_folders |= set(rules.get("excluded_folders_in_code", []))
             
         # Optionen
         # options
@@ -3844,21 +4268,23 @@ def main_logic():
         print("-" * 90)
 
 
-    if rules:
-        excluded_exe_patterns = rules["excluded_exe_patterns_in_code"]
-        excluded_exe_names = rules["excluded_exe_names_in_code"]
-        excluded_exe_exact = set(rules["excluded_exe_exact_in_code"])
-        game_name_mappings = rules["game_name_mappings"]
-        game_name_exact = rules["game_name_exact"]
-        excluded_folders |= set(rules.get("excluded_folders_in_code", []))
+    # if rules:
+    #     excluded_exe_patterns = rules["excluded_exe_patterns_in_code"]
+    #     excluded_exe_names = rules["excluded_exe_names_in_code"]
+    #     excluded_exe_exact = set(rules["excluded_exe_exact_in_code"])
+    #     game_name_mappings = rules["game_name_mappings"]
+    #     game_name_exact = rules["game_name_exact"]
+    #     excluded_folders |= set(rules.get("excluded_folders_in_code", []))
         
         
-    else:
-        if language == 1:
-            print("⚠️ Matchfixes nicht verfügbar, die Kategorien können für manche Spiele nicht korrekt gefunden werden!")
-        if language == 0:
-            print("⚠️ Matchfixes not available, finding categorys might not work properly for some games!")       
+    # else:
+    #     if language == 1:
+    #         print("⚠️ Matchfixes nicht verfügbar, die Kategorien können für manche Spiele nicht korrekt gefunden werden!")
+    #     if language == 0:
+    #        print("⚠️ Matchfixes not available, finding categorys might not work properly for some games!")       
 
+    _apply_matchfix_rules()
+    #print(_matchfix_sha)
     process_to_game = {}
     while True:
         try:
@@ -4119,7 +4545,7 @@ def main_logic():
                         # Find valid root folder
                         if not root_folder:
                             if not is_windowsapps:
-                                root_folder = get_valid_root_folder(exe_path, allowed_paths, excluded_folders)
+                                root_folder = get_valid_root_folder(exe_path, allowed_paths, excluded_folders | matchfix_excluded_folders)
                                 
                 ##                if root_folder:
                 ##                    print(f"Root: {root_folder}")
@@ -5334,6 +5760,7 @@ if __name__ == '__main__':
     _qt_app = QApplication.instance() or QApplication(sys.argv)
     _qt_app.setQuitOnLastWindowClosed(False)
     _init_changelog_signal()
+    threading.Thread(target=_check_python_deprecation, daemon=True).start()
     _notification_ready = threading.Event()
     def _run_notification():
         global rules, excluded_exe_patterns, excluded_exe_names, excluded_exe_exact, game_name_mappings, game_name_exact
