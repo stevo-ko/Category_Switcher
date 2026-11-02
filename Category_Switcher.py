@@ -385,7 +385,6 @@ for module in modules:
 
 # Jetzt die Module importieren (nach der Installation)
 # After install import modules
-from numpy import stack
 from rapidfuzz import fuzz
 import requests
 import psutil
