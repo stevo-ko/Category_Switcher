@@ -1,5 +1,13 @@
 # 🧩 Match Liste — Matchfixes Changelog
 
+## v0.27 (DE)
+
+- 🚫 Ordner `_forever_` ausgeschlossen
+
+## v0.27 (EN)
+
+- 🚫 Folder `_forever_` excluded
+
 ## v0.26 (DE)
 
 - 🎯 `Brawlrecompiled` Mapping auf `Super Smash Bros. Brawl` hinzugefügt
