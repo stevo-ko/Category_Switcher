@@ -3522,7 +3522,7 @@ def main_logic():
 
     
     def send_user():
-        if not DEBUG_MODE:   # ← soll das im normalen Betrieb laufen? Dann: if not DEBUG_MODE:
+        if not DEBUG_MODE:
             if username:
                 try:
                     # User registrieren
@@ -3550,7 +3550,7 @@ def main_logic():
 
 
     def send_report():
-        if not DEBUG_MODE:   # ← soll das im normalen Betrieb laufen? Dann: if not DEBUG_MODE:
+        if not DEBUG_MODE: 
             return
 
         # Payload JETZT bauen, weil sich die Variablen im Loop danach weiter ändern
