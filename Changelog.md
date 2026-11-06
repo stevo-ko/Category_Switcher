@@ -1,3 +1,9 @@
+## :small_blue_diamond: **v2.0.24-Sv1.0.2 (DE)**
+- 🔧 Fixes bei Kategorie nicht gefunden Bericht erstellung und sendung
+
+## :small_blue_diamond: **v2.0.24-Sv1.0.2 (EN)**
+- 🔧 Fixes for Category Not Found report creation and sendind
+
 ## :small_blue_diamond: **v2.0.23-Sv1.0.2 (DE)**
 - 🔔 Matfixes werden jetzt alle 15 Minuten abgefragt, wenn neuere Version vorhanden still upgedated.
 - 🔔 C# umstellung angefangen.

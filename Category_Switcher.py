@@ -2692,7 +2692,8 @@ operating_system = None
 windowsapps_map = {}       # {exe_name.lower(): display_name}
 report_twitch_category = None
 report_kick_category = None
-
+report_game_folder = None
+reports_disabled = False 
 
 def main_logic():
     
@@ -2722,7 +2723,7 @@ def main_logic():
     global default_category, default_twitch_category, default_kick_category
     
     ## Variables for report system
-    global report_sended, window_title, wiki_title, BACKEND_URL, backend_token, username, switcher_version, matchfix_version, avatar_url, operating_system, version_path, backend_api, report_twitch_category, report_kick_category
+    global report_sended, window_title, wiki_title, BACKEND_URL, backend_token, username, switcher_version, matchfix_version, avatar_url, operating_system, version_path, backend_api, report_twitch_category, report_kick_category, report_game_folder
     
     ## Dict for windowsapps
     global windowsapps_map
@@ -3521,65 +3522,80 @@ def main_logic():
 
     
     def send_user():
-        if DEBUG_MODE:
+        if not DEBUG_MODE:   # ← soll das im normalen Betrieb laufen? Dann: if not DEBUG_MODE:
             if username:
-                # User registrieren
-                requests.post(
-                    f"{BACKEND_URL}/user",
-                    json={"username": username, "avatar_url": avatar_url},
-                    headers={"X-Api-Key": backend_token},
-                    timeout=5
-                )
-                
-                # Game Data hochladen
-                if os.path.exists("game_data.json"):
-                                 
-                    with open("game_data.json", "r", encoding="utf-8") as f:
-                        game_data = json.load(f)
-                    
-                    #print (game_data)
+                try:
+                    # User registrieren
                     requests.post(
-                        f"{BACKEND_URL}/user/{username}/game-data",
-                        json=game_data,
+                        f"{BACKEND_URL.rstrip('/')}/user",
+                        json={"username": username, "avatar_url": avatar_url},
                         headers={"X-Api-Key": backend_token},
-                        timeout=10
+                        timeout=5
                     )
+
+                    # Game Data hochladen
+                    if os.path.exists("game_data.json"):
+                        with open("game_data.json", "r", encoding="utf-8") as f:
+                            game_data = json.load(f)
+                        requests.post(
+                            f"{BACKEND_URL.rstrip('/')}/user/{username}/game-data",
+                            json=game_data,
+                            headers={"X-Api-Key": backend_token},
+                            timeout=10
+                        )
+                except Exception as e:
+                    _vlog(f"send_user fehlgeschlagen: {e}")
     if backend_api:
-        send_user()
+        threading.Thread(target=send_user, daemon=True).start()
 
 
     def send_report():
-        if not DEBUG_MODE:
-            try:
-                payload = {
-                    "error": "Category Not Found",
-                    "stack": "",
-                    "username": username,
-                    "version": switcher_version,
-                    "matchfix_version": matchfix_version,
-                    "os": operating_system,
-                    "game_folder": game_folder,
-                    "exe_path": exe_path,
-                    "window_title": window_title,
-                    "wiki_title": wiki_title
-                }
+        if not DEBUG_MODE:   # ← soll das im normalen Betrieb laufen? Dann: if not DEBUG_MODE:
+            return
 
-                if report_twitch_category is not None:
-                    payload["twitch_category"] = report_twitch_category
+        # Payload JETZT bauen, weil sich die Variablen im Loop danach weiter ändern
+        payload = {
+            "error": "Category Not Found",
+            "stack": "",
+            "username": username,
+            "version": switcher_version,
+            "matchfix_version": matchfix_version,
+            "os": operating_system,
+            "game_folder": report_game_folder or game_folder,   # Originalname statt Fenstertitel/Wiki
+            "exe_path": exe_path,
+            "window_title": window_title,
+            "wiki_title": wiki_title
+        }
+        if report_twitch_category is not None:
+            payload["twitch_category"] = report_twitch_category
+        if report_kick_category is not None:
+            payload["kick_category"] = report_kick_category
 
-                if report_kick_category is not None:
-                    payload["kick_category"] = report_kick_category
+        def _post():
+            global reports_disabled             
+            for attempt in range(3):
+                try:
+                    res = requests.post(
+                        f"{BACKEND_URL.rstrip('/')}/report",
+                        json=payload,
+                        headers={"X-Api-Key": backend_token},
+                        timeout=5
+                    )
+                    if res.ok:
+                        return
+                    if res.status_code == 410:  
+                        reports_disabled = True
+                        _vlog("Reports vom Backend deaktiviert (410).")
+                        return
+                    _vlog(f"Report HTTP {res.status_code}")
+                    if res.status_code < 500:
+                        return
+                except requests.RequestException as e:
+                    _vlog(f"Report fehlgeschlagen ({attempt + 1}/3): {e}")
+                if attempt < 2:
+                    time.sleep(5 * (attempt + 1))
 
-                res = requests.post(
-                    f"{BACKEND_URL}/report",
-                    json=payload,
-                    headers={"X-Api-Key": backend_token},
-                    timeout=5
-                )
-                return res
-            except requests.RequestException as e:
-                print("REQUEST FAILED:", e)
-                return None
+        threading.Thread(target=_post, daemon=True).start()
 
     extra_qualifier_words = [
         "multiplayer", "singleplayer", "single player", "campaign",
@@ -4722,6 +4738,11 @@ def main_logic():
                             alternatives_tried_kick = False
                             report_twitch_category = None
                             report_kick_category = None
+                            report_game_folder = game_folder  
+                            window_title = None
+                            wiki_title = None
+                            wiki_name = None
+                            kick_window_title = None    
                                                         
                         if not displayed_warning:
                             if language == 1:
@@ -4753,17 +4774,22 @@ def main_logic():
                                     if not categories_window_title:
                                         
                                         wiki_name = search_wikipedia_game(game_folder)
+                                        wiki_title = wiki_name
 
                                         if wiki_name and wiki_name != window_title:
                                                                                 
                                             categories = search_twitch_category(token, wiki_name)  
                                             alternatives_tried = True
+                                            if kick_game_folder == game_folder:    # nur ohne eigene Kick-Zuordnung aus dem Matchfix
+                                                kick_game_folder = wiki_name
                                             game_folder = wiki_name
                                         else:
                                             alternatives_tried = True  
                                             
                                     else:
                                         categories = categories_window_title
+                                        if kick_game_folder == game_folder:        # nur ohne eigene Kick-Zuordnung aus dem Matchfix
+                                            kick_game_folder = window_title
                                         game_folder = window_title
                                         alternatives_tried = True
                   
@@ -4828,12 +4854,14 @@ def main_logic():
                                     if not kick_categories:
                                         
                                         if not alternatives_tried_kick:
-                                            window_title = get_window_title_by_exe(pid) 
-                                            
-                                            kick_categories_window_title = search_kick_category(kick_token, window_title) 
-                                            print(kick_categories_window_title)                         
+                                            kick_window_title = get_window_title_by_exe(pid) 
+                                            if not window_title:
+                                                window_title = kick_window_title
+                                                                                            
+                                            kick_categories_window_title = search_kick_category(kick_token, kick_window_title) 
+                                            #print(kick_categories_window_title)                         
                                             if not kick_categories_window_title:
-                                                if wiki_name and wiki_name != window_title:
+                                                if wiki_name and wiki_name != kick_window_title:
                                                     kick_categories = search_kick_category(kick_token, wiki_name)
                                                     alternatives_tried_kick = True
                                                     kick_game_folder = wiki_name
@@ -4841,7 +4869,7 @@ def main_logic():
                                                     alternatives_tried_kick = True
                                             else:
                                                 kick_categories = kick_categories_window_title
-                                                kick_game_folder = window_title
+                                                kick_game_folder = kick_window_title
                                                 alternatives_tried_kick = True
 
                                     if kick_categories:
