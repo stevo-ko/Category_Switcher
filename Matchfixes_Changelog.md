@@ -1,5 +1,13 @@
 # 🧩 Match Liste — Matchfixes Changelog
 
+## v0.28 (DE)
+
+- 🎯 `Fable - The Lost Chapters` Mapping auf `Fable` hinzugefügt
+
+## v0.28 (EN)
+
+- 🎯 `Fable - The Lost Chapters` Mapping to `Fable` added
+
 ## v0.27 (DE)
 
 - 🚫 Ordner `_forever_` ausgeschlossen
