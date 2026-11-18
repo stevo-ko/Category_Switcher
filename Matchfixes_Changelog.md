@@ -1,5 +1,13 @@
 # 🧩 Match Liste — Matchfixes Changelog
 
+## v0.29 (DE)
+
+- 🎯 `Pokemon - Smaragd Edition` Mapping auf `Pokemon - Emerald Edition` hinzugefügt
+
+## v0.29 (EN)
+
+- 🎯 `Pokemon - Smaragd Edition` Mapping to `Pokemon - Emerald Edition` added
+
 ## v0.28 (DE)
 
 - 🎯 `Fable - The Lost Chapters` Mapping auf `Fable` hinzugefügt
