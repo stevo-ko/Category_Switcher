@@ -54,6 +54,7 @@
 - Extract **Category_Switcher.zip**
 - Try to open **Category_Switcher.exe** as Windows often blocks the first execution of the exe, and this causes problems later on. Could also be necessary after an update.
 - Import the action to **Streamer.bot** with the import code inside **Category_Switcher.stevo** or using the file itself.
+- **For version 2.0.24:** After importing, go to the **[STEVO] Open Category Switcher** Action, edit the **Run Program** Subaction, and change the argument from `%bot http%` to `%bothttp%`. **For versions higher than 2.0.24:** This change is not required, as the updated import will already include it.
 - Go to **Streamer.bot → Servers/Clients → HTTP Server**.
 - Ensure the **HTTP server** is enabled and started, you can change port and adress as you like before starting the server.
 
